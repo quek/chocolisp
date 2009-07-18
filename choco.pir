@@ -1,3 +1,28 @@
+=head1 関数
+
+car
+cdr
+cons
+quote
+eq
+atom
+cond
+defun等、関数を定義する命令
+
+=head1 special operators
+
+block      let*                  return-from
+catch      load-time-value       setq
+eval-when  locally               symbol-macrolet
+flet       macrolet              tagbody
+function   multiple-value-call   the
+go         multiple-value-prog1  throw
+if         progn                 unwind-protect
+labels     progv
+let        quote
+
+=cut
+
 .HLL 'CHOCO'
 
 .namespace ["CHOCO"]
@@ -93,8 +118,6 @@ atom:
 
 .sub '%eval-arg'
         .param pmc args
-        .local pmc nil
-        nil = get_global "NIL"
         $I0 = isa args, [ "NULL" ]
         if $I0 goto endp
         .local pmc car
@@ -106,16 +129,16 @@ atom:
         $P2 = 'cons'($P0, $P1)
         .return($P2)
 endp:
+        .local pmc nil
+        nil = get_global "NIL"
         .return(nil)
 .end
 
 .sub '%apply'
-        .param pmc symbol
+        .param pmc function
         .param pmc args
-        $P0 = symbol.'symbol-function'()
+        $P0 = '%so-function'(function)
         $P0 = $P0.'body'()
-        $S0 = $P0
-        $P0 = get_global $S0
         $P1 = $P0(args)
         .return($P1)
 .end
@@ -129,6 +152,12 @@ endp:
         .return($P3)
 .end
 
+.sub '%so-function'
+        .param pmc arg
+        ## TODO flet labels macrolet
+        $P0 = arg.'symbol-function'()
+        .return($P0)
+.end
 
 .namespace [ "CONS" ]
 .define_reader('car', 'car')
@@ -149,6 +178,7 @@ endp:
 .define_writer('setf-symbol-plist', 'plist')
 
 .namespace [ "FUNCTION" ]
+.define_reader('name', 'name')
 .define_reader('body', 'body')
 .define_reader('args', 'args')
 .define_writer('setf-body', 'body')
