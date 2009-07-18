@@ -61,7 +61,8 @@ end:
 
 
         $P0 = new 'FUNCTION'
-        $P0.'setf-body'('%+')
+        $P1 = get_global '%+'
+        $P0.'setf-body'($P1)
 
         $P1 = new 'SYMBOL'
         $P1.'setf-symbol-name'("+")
