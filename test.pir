@@ -47,9 +47,29 @@ end:
 .end
 
 .sub 'test_eval'
+        .local pmc nil
+        nil = get_global "NIL"
         say 'test_eval'
-        $P0 = '%%eval'(1)
+
+
+        $P0 = '%eval'(1)
         'assert'(1, $P0)
-        $P0 = '%%eval'("abc")
+
+
+        $P0 = '%eval'("abc")
         'assert'("abc", $P0)
+
+
+        $P0 = new 'FUNCTION'
+        $P0.'setf-body'('%+')
+
+        $P1 = new 'SYMBOL'
+        $P1.'setf-symbol-name'("+")
+        $P1.'setf-symbol-function'($P0)
+
+        $P0 = 'cons'(11, nil)
+        $P0 = 'cons'(22, $P0)
+        $P0 = 'cons'($P1, $P0)
+        $P0 = '%eval'($P0)
+        'assert'(33, $P0)
 .end
