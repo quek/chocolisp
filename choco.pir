@@ -118,8 +118,9 @@ atom:
 
 .sub '%eval-arg'
         .param pmc args
-        $I0 = isa args, [ "NULL" ]
-        if $I0 goto endp
+        .local pmc nil
+        nil = get_global "NIL"
+        eq_addr args, nil, endp
         .local pmc car
         .local pmc cdr
         car = args.'car'()
@@ -129,8 +130,6 @@ atom:
         $P2 = 'cons'($P0, $P1)
         .return($P2)
 endp:
-        .local pmc nil
-        nil = get_global "NIL"
         .return(nil)
 .end
 
