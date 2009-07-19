@@ -1,25 +1,4 @@
-=head1 関数
-
-car
-cdr
-cons
-quote
-eq
-atom
-cond
-defun等、関数を定義する命令
-
-=head1 special operators
-
-block      let*                  return-from
-catch      load-time-value       setq
-eval-when  locally               symbol-macrolet
-flet       macrolet              tagbody
-function   multiple-value-call   the
-go         multiple-value-prog1  throw
-if         progn                 unwind-protect
-labels     progv
-let        quote
+=head1 chocolisp
 
 =cut
 

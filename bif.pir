@@ -1,3 +1,16 @@
+=head1 組み込み関数
+
+car
+cdr
+cons
+quote(sp)
+eq
+atom
+cond(sp, if)
+defun等、関数を定義する命令
+
+=cut
+
 .namespace ["CHOCO"]
 
 .sub 'init-bif'
@@ -11,6 +24,7 @@
         '%init-bif'(package, "RPLACA",   'rplaca')
         '%init-bif'(package, "RPLACD",   'rplacd')
         '%init-bif'(package, "+",        '+')
+        '%init-bif'(package, "-",        '-')
 .end
 
 .sub '%init-bif'
@@ -84,5 +98,15 @@
         $P1 = arg.'cdr'()
         $P2 = $P1.'car'()
         $P3 = $P0 + $P2
+        .return($P3)
+.end
+
+
+.sub '-'
+        .param pmc arg
+        $P0 = arg.'car'()
+        $P1 = arg.'cdr'()
+        $P2 = $P1.'car'()
+        $P3 = $P0 - $P2
         .return($P3)
 .end
