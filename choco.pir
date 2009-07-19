@@ -27,6 +27,7 @@ let        quote
 
 .namespace ["CHOCO"]
 
+.include "special-op.pir"
 .include "test.pir"
 .include "read.pir"
 
@@ -179,12 +180,6 @@ endp:
         .return($P3)
 .end
 
-.sub '%so-function'
-        .param pmc arg
-        ## TODO flet labels macrolet
-        $P0 = arg.'symbol-function'()
-        .return($P0)
-.end
 
 
 .namespace [ "NULL" ]

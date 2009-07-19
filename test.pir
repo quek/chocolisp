@@ -4,6 +4,7 @@
         'test_cons'()
         'test_eval'()
         'test_read'()
+        say "\nok"
 .end
 
 .sub 'assert'
@@ -20,6 +21,7 @@
         $P0 = $S0
         throw $P0
 end:
+        print "."
 .end
 
 .sub 'test_FixedPMCArray'
@@ -36,7 +38,7 @@ end:
 
 .sub 'test_cons'
         .local pmc my_cons
-        say 'test_cons'
+        print "\ntest_cons"
         $P0 = 'cons'(123, "abc")
         $P1 = $P0.'car'()
         'assert'(123, $P1)
@@ -52,8 +54,8 @@ end:
 
 .sub 'test_eval'
         .local pmc nil
+        print "\ntest_eval"
         nil = get_global "NIL"
-        say 'test_eval'
 
 
         $P0 = '%eval'(1)
@@ -81,6 +83,7 @@ end:
 
 .sub 'test_read'
         .local pmc package
+        print "\ntest_read"
         package = get_global "*PACKAGE*"
         package = package.'symbol-value'()
         $P0 = package.'%intern'("+")
