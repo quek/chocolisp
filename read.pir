@@ -64,13 +64,13 @@ symbol:
         eq "(", $S0, read_list
         $P0 = '%read-atom'(fh)
         $P1 = '%read-list'(fh)
-        $P2 = 'cons'($P0, $P1)
+        $P2 = '%cons'($P0, $P1)
         .return($P2)
 read_list:
         '%read-char'(fh)
         $P0 = '%read-list'(fh)
         $P1 = '%read-list'(fh)
-        $P2 = 'cons'($P0, $P1)
+        $P2 = '%cons'($P0, $P1)
         .return($P2)
 ret_nil:
         '%read-char'(fh)

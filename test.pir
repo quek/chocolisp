@@ -39,7 +39,7 @@ end:
 .sub 'test_cons'
         .local pmc my_cons
         print "\ntest_cons"
-        $P0 = 'cons'(123, "abc")
+        $P0 = '%cons'(123, "abc")
         $P1 = $P0.'car'()
         'assert'(123, $P1)
         $P1 = $P0.'cdr'()
@@ -53,9 +53,12 @@ end:
 .end
 
 .sub 'test_eval'
-        .local pmc nil
         print "\ntest_eval"
+        .local pmc nil
         nil = get_global "NIL"
+        .local pmc package
+        package = get_global "*PACKAGE*"
+        package = package.'symbol-value'()
 
 
         $P0 = '%eval'(1)
@@ -70,28 +73,17 @@ end:
         $P1 = get_global '%+'
         $P0.'setf-body'($P1)
 
-        $P1 = new 'SYMBOL'
-        $P1.'setf-symbol-name'("+")
-        $P1.'setf-symbol-function'($P0)
+        $P1 = package.'%intern'("+")
 
-        $P0 = 'cons'(11, nil)
-        $P0 = 'cons'(22, $P0)
-        $P0 = 'cons'($P1, $P0)
+        $P0 = '%cons'(11, nil)
+        $P0 = '%cons'(22, $P0)
+        $P0 = '%cons'($P1, $P0)
         $P0 = '%eval'($P0)
         'assert'(33, $P0)
 .end
 
 .sub 'test_read'
-        .local pmc package
         print "\ntest_read"
-        package = get_global "*PACKAGE*"
-        package = package.'symbol-value'()
-        $P0 = package.'%intern'("+")
-        $P1 = get_global "%+"
-        $P2 = new 'FUNCTION'
-        $P2.'setf-body'($P1)
-        $P0.'setf-symbol-function'($P2)
-
         .local pmc fh
         .local pmc sexp
         fh = '%open'("a.lisp", "r")

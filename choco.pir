@@ -28,6 +28,7 @@ let        quote
 .namespace ["CHOCO"]
 
 .include "special-op.pir"
+.include "bif.pir"
 .include "test.pir"
 .include "read.pir"
 
@@ -73,6 +74,8 @@ let        quote
         $P1 = $P0.'%intern'("*PACKAGE*")
         $P1.'setf-symbol-value'($P0)
         set_global "*PACKAGE*", $P1
+
+        'init-bif'()
 .end
 
 .sub '%define-classes'
@@ -91,6 +94,7 @@ let        quote
         addattribute $P0, 'plist'
 
         $P0 = newclass "FUNCTION"
+        addattribute $P0, 'name'
         addattribute $P0, 'args'
         addattribute $P0, 'body'
 
@@ -103,7 +107,7 @@ let        quote
 .end
 
 
-.sub 'cons'
+.sub '%cons'
         .param pmc car
         .param pmc cdr
 
@@ -156,7 +160,7 @@ atom:
         cdr = args.'cdr'()
         $P0 = '%eval'(car)
         $P1 = '%eval-arg'(cdr)
-        $P2 = 'cons'($P0, $P1)
+        $P2 = '%cons'($P0, $P1)
         .return($P2)
 endp:
         .return(nil)
@@ -169,15 +173,6 @@ endp:
         $P0 = $P0.'body'()
         $P1 = $P0(args)
         .return($P1)
-.end
-
-.sub '%+'
-        .param pmc arg
-        $P0 = arg.'car'()
-        $P1 = arg.'cdr'()
-        $P2 = $P1.'car'()
-        $P3 = $P0 + $P2
-        .return($P3)
 .end
 
 
@@ -232,6 +227,7 @@ endp:
 .define_reader('name', 'name')
 .define_reader('body', 'body')
 .define_reader('args', 'args')
+.define_writer('setf-name', 'name')
 .define_writer('setf-body', 'body')
 .define_writer('setf-args', 'args')
 
