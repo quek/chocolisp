@@ -28,6 +28,7 @@ let        quote
 .namespace ["CHOCO"]
 
 .include "test.pir"
+.include "read.pir"
 
 
 .macro define_reader (name, attr)
@@ -64,28 +65,40 @@ let        quote
 
 .sub '%initialize'
         '%define-classes'()
+
         $P0 = new 'NULL'
         set_global "NIL", $P0
+
+        $P0 = '%make-package'("CHOCO")
+        $P1 = $P0.'%intern'("*PACKAGE*")
+        $P1.'setf-symbol-value'($P0)
 .end
 
 .sub '%define-classes'
 
-        $P0 = newclass 'NULL'
+        $P0 = newclass "NULL"
 
-        $P0 = newclass 'CONS'
+        $P0 = newclass "CONS"
         addattribute $P0, 'car'
         addattribute $P0, 'cdr'
 
-        $P0 = newclass 'SYMBOL'
+        $P0 = newclass "SYMBOL"
         addattribute $P0, 'name'
         addattribute $P0, 'value'
         addattribute $P0, 'function'
         addattribute $P0, 'package'
         addattribute $P0, 'plist'
 
-        $P0 = newclass 'FUNCTION'
+        $P0 = newclass "FUNCTION"
         addattribute $P0, 'args'
         addattribute $P0, 'body'
+
+        $P0 = newclass "PACKAGE"
+        addattribute $P0, 'name'
+        addattribute $P0, 'nick-names'
+        addattribute $P0, 'use-list'
+        addattribute $P0, 'external-symbols'
+        addattribute $P0, 'internal-symbols'
 .end
 
 
@@ -99,6 +112,21 @@ let        quote
         .return($P0)
 .end
 
+
+.sub '%make-package'
+        .param string name
+        $P0 = new "PACKAGE"
+        $P0.'setf-name'(name)
+        $P1 = new 'ResizablePMCArray'
+        $P0.'setf-nick-names'($P1)
+        $P1 = new 'ResizablePMCArray'
+        $P0.'setf-use-list'($P1)
+        $P1 = new 'Hash'
+        $P0.'setf-external-symbols'($P1)
+        $P1 = new 'Hash'
+        $P0.'setf-internal-symbols'($P1)
+        .return($P0)
+.end
 
 
 .sub '%eval'
@@ -158,6 +186,8 @@ endp:
         .return($P0)
 .end
 
+
+
 .namespace [ "CONS" ]
 .define_reader('car', 'car')
 .define_reader('cdr', 'cdr')
@@ -182,3 +212,49 @@ endp:
 .define_reader('args', 'args')
 .define_writer('setf-body', 'body')
 .define_writer('setf-args', 'args')
+
+
+.namespace [ "PACKAGE" ]
+
+.define_reader('name', 'name')
+.define_reader('nick-names', 'nick-names')
+.define_reader('use-list', 'use-list')
+.define_reader('external-symbols', 'external-symbols')
+.define_reader('internal-symbols', 'internal-symbols')
+.define_writer('setf-name', 'name')
+.define_writer('setf-nick-names', 'nick-names')
+.define_writer('setf-use-list', 'use-list')
+.define_writer('setf-external-symbols', 'external-symbols')
+.define_writer('setf-internal-symbols', 'internal-symbols')
+
+.sub '%find-symbol' :method
+        .param string name
+        .local pmc external_symbols
+        external_symbols = self.'external-symbols'()
+        $P0 = external_symbols[name]
+        $I0 = isnull $P0
+        if $I0 goto next1
+        .return($P0)
+next1:
+        .local pmc internal_symbols
+        internal_symbols = self.'internal-symbols'()
+        $P0 = internal_symbols[name]
+        $I0 = isnull $P0
+        if $I0 goto next2
+        .return($P0)
+next2:
+        .return(0)
+.end
+
+.sub '%intern' :method
+        .param string name
+        $P0 = self.'%find-symbol'(name)
+        if $P0 goto end
+        $P0 = new "SYMBOL"
+        $P0.'setf-symbol-name'(name)
+        $P0.'setf-symbol-package'(self)
+        $P1 = self.'internal-symbols'()
+        $P1[name] = $P0
+end:
+        .return($P0)
+.end
