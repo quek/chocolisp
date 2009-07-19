@@ -51,8 +51,7 @@ let        quote
         '%initialize'()
         'a_test'()
 
-        'test_cons'()
-        'test_eval'()
+        '%run-test'()
 .end
 
 .sub 'a_test'
@@ -72,6 +71,7 @@ let        quote
         $P0 = '%make-package'("CHOCO")
         $P1 = $P0.'%intern'("*PACKAGE*")
         $P1.'setf-symbol-value'($P0)
+        set_global "*PACKAGE*", $P1
 .end
 
 .sub '%define-classes'
@@ -187,14 +187,35 @@ endp:
 .end
 
 
+.namespace [ "NULL" ]
+
+.sub get_string :vtable :method
+        .return("nil")
+.end
+
 
 .namespace [ "CONS" ]
+
 .define_reader('car', 'car')
 .define_reader('cdr', 'cdr')
 .define_writer ('rplaca', 'car')
 .define_writer ('rplacd', 'cdr')
 
+.sub get_string :vtable :method
+        .local pmc car
+        .local pmc cdr
+        car = self.'car'()
+        cdr = self.'cdr'()
+        $S0 = car
+        $S1 = cdr
+        $S2 = $S0 . " "
+        $S2 .= $S1
+        .return($S2)
+.end
+
+
 .namespace [ "SYMBOL" ]
+
 .define_reader('symbol-name', 'name')
 .define_reader('symbol-value', 'value')
 .define_reader('symbol-function', 'function')
@@ -205,6 +226,12 @@ endp:
 .define_writer('setf-symbol-function', 'function')
 .define_writer('setf-symbol-package', 'package')
 .define_writer('setf-symbol-plist', 'plist')
+
+.sub get_string :vtable :method
+        $S0 = self.'symbol-name'()
+        .return($S0)
+.end
+
 
 .namespace [ "FUNCTION" ]
 .define_reader('name', 'name')
@@ -243,13 +270,15 @@ next1:
         if $I0 goto next2
         .return($P0)
 next2:
-        .return(0)
+        null $P0
+        .return($P0)
 .end
 
 .sub '%intern' :method
         .param string name
         $P0 = self.'%find-symbol'(name)
-        if $P0 goto end
+        $I0 = isnull $P0
+        unless $I0 goto end
         $P0 = new "SYMBOL"
         $P0.'setf-symbol-name'(name)
         $P0.'setf-symbol-package'(self)

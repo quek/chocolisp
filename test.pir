@@ -1,19 +1,23 @@
 .namespace ["CHOCO"]
 
 .sub '%run-test'
-        'cons_test'()
+        'test_cons'()
+        'test_eval'()
+        'test_read'()
 .end
 
 .sub 'assert'
         .param pmc x
         .param pmc y
         if x == y goto end
-        say "================================"
-        print x
-        print " != "
-        print y
-        say ""
+        $S0 = "================================\n"
+        $S1 = x
+        $S0 .= $S1
+        $S0 .= " != "
+        $S1 = y
+        $S0 .= $S1
         $P0 = new 'Exception'
+        $P0 = $S0
         throw $P0
 end:
 .end
@@ -73,4 +77,23 @@ end:
         $P0 = 'cons'($P1, $P0)
         $P0 = '%eval'($P0)
         'assert'(33, $P0)
+.end
+
+.sub 'test_read'
+        .local pmc package
+        package = get_global "*PACKAGE*"
+        package = package.'symbol-value'()
+        $P0 = package.'%intern'("+")
+        $P1 = get_global "%+"
+        $P2 = new 'FUNCTION'
+        $P2.'setf-body'($P1)
+        $P0.'setf-symbol-function'($P2)
+
+        .local pmc fh
+        .local pmc sexp
+        fh = '%open'("a.lisp", "r")
+        sexp = '%read'(fh)
+        '%close'(fh)
+        $P0 = '%eval'(sexp)
+        'assert'(30, $P0)
 .end
