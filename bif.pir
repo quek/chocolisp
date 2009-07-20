@@ -25,6 +25,7 @@ defun等、関数を定義する命令
         '%init-bif'(package, "RPLACD",   'rplacd')
         '%init-bif'(package, "+",        '+')
         '%init-bif'(package, "-",        '-')
+        '%init-bif'(package, "print",    'print')
 .end
 
 .sub '%init-bif'
@@ -101,7 +102,6 @@ defun等、関数を定義する命令
         .return($P3)
 .end
 
-
 .sub '-'
         .param pmc arg
         $P0 = arg.'car'()
@@ -109,4 +109,11 @@ defun等、関数を定義する命令
         $P2 = $P1.'car'()
         $P3 = $P0 - $P2
         .return($P3)
+.end
+
+.sub 'print'
+        .param pmc arg
+        $P0 = arg.'car'()
+        say $P0
+        .return($P0)
 .end

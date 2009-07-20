@@ -33,10 +33,11 @@ end:
         .local string buffer
 loop:
         $S0 = peek fh
-        eq "", $S0, loop_end
+        eq "",  $S0, loop_end
         eq "(", $S0, loop_end
         eq ")", $S0, loop_end
         ge " ", $S0, loop_end
+        eq "\"", $S0, loop_string
         '%read-char'(fh)
         buffer .= $S0
         goto loop
@@ -53,6 +54,15 @@ symbol:
         package = _package_.'symbol-value'()
         $P0 = package.'%intern'(buffer)
         .return($P0)
+loop_string:
+        '%read-char'(fh)
+        $S0 = peek fh
+        eq "\"", $S0, string_end
+        buffer .= $S0
+        goto loop_string
+string_end:
+        '%read-char'(fh)
+        .return(buffer)
 .end
 
 .sub '%read-list'

@@ -88,7 +88,12 @@ end:
         .local pmc sexp
         fh = '%open'("a.lisp", "r")
         sexp = '%read'(fh)
-        '%close'(fh)
+        ##say sexp
         $P0 = '%eval'(sexp)
         'assert'(30, $P0)
+        sexp = '%read'(fh)
+        ##say sexp
+        $P0 = '%eval'(sexp)
+        'assert'("Hello", $P0)
+        '%close'(fh)
 .end
