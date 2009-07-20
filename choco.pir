@@ -55,6 +55,7 @@
         set_global "*PACKAGE*", $P1
 
         'init-bif'()
+        'init-special-operator'()
 .end
 
 .sub '%define-classes'
@@ -76,6 +77,10 @@
         addattribute $P0, 'name'
         addattribute $P0, 'args'
         addattribute $P0, 'body'
+
+        $P0 = subclass "FUNCTION", "SPECIAL-OPERATOR"
+
+        $P0 = subclass "FUNCTION", "MACRO"
 
         $P0 = newclass "PACKAGE"
         addattribute $P0, 'name'
@@ -119,13 +124,28 @@
         if $P0 == 'CONS' goto cons
         goto atom
 cons:
-        $P1 = arg.'car'()
+        $P1 = 'function'(arg)
         $P2 = arg.'cdr'()
+        $I0 = isa $P1, "SPECIAL-OPERATOR"
+        if $I0 goto special_operator
+        $I0 = isa $P1, "MACRO"
+        if $I0 goto macro
+function:
         $P2 = '%eval-arg'($P2)
         $P3 = '%apply'($P1, $P2)
         .return($P3)
+macro:
+        $P3 = '%apply'($P1, $P2)
+        .return($P3)
+special_operator:
+        $P3 = '%apply'($P1, $P2)
+        .return($P3)
 atom:
+        if $P0 == "SYMBOL" goto symbol
         .return(arg)
+symbol:
+        $P3 = arg.'symbol-value'()
+        .return($P3)
 .end
 
 .sub '%eval-arg'
@@ -148,8 +168,7 @@ endp:
 .sub '%apply'
         .param pmc function
         .param pmc args
-        $P0 = '%so-function'(function)
-        $P0 = $P0.'body'()
+        $P0 = function.'body'()
         $P1 = $P0(args)
         .return($P1)
 .end
