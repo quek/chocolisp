@@ -48,6 +48,7 @@
 
         .local pmc package
         package = '%make-package'("CHOCO")
+        set_global "ROOT-PACKAGE", package
         $P1 = package.'%intern'("*PACKAGE*")
         $P1.'setf-symbol-value'(package)
         set_global "*PACKAGE*", $P1
@@ -205,6 +206,7 @@ closure:
         d_venv = $P0.'venv'()
         lambda_list = $P0.'lambda-list'()
         body = $P0.'body'()
+        args = '%eval-list'(args, venv, fenv)
         d_venv = 'extend_env'(d_venv, lambda_list, args)
         $P1 = 'progn'(body, d_venv, fenv)
         .return($P1)

@@ -25,6 +25,8 @@ lambda は違うんだ。
         '%init-special-operator'(package, "IF",        'if')
         ## lambda はちがう
         '%init-special-operator'(package, "LAMBDA",    'lambda')
+        ## defun はちがう
+        '%init-special-operator'(package, "DEFUN",     'defun')
 .end
 
 .sub '%init-special-operator'
@@ -111,6 +113,34 @@ else:
         lambda.'setf-fenv'(fenv)
         .return(lambda)
 .end
+
+## defun はスペシャルオペレータじゃないんだけど。。。
+.sub 'defun'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc lambda
+        .local pmc name
+        .local pmc lambda_list
+        .local pmc body
+        .local pmc symbol
+        .local pmc package
+        lambda = new "CLOSURE"
+        name = arg.'car'()
+        lambda.'setf-name'(name)
+        arg = arg.'cdr'()
+        lambda_list = arg.'car'()
+        lambda.'setf-lambda-list'(lambda_list)
+        body = arg.'cdr'()
+        lambda.'setf-body'(body)
+        lambda.'setf-venv'(venv)
+        lambda.'setf-fenv'(fenv)
+        package = get_global "ROOT-PACKAGE"
+        symbol = package.'%intern'(name)
+        symbol.'setf-symbol-function'(lambda)
+        .return(lambda)
+.end
+
 
 
 ##.sub 'function'

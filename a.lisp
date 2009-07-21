@@ -1,4 +1,5 @@
 (+ 10 20)
+
 (print "Hello")
 
 (if 1
@@ -10,7 +11,10 @@
     200)
 
 (progn
-  (print ";;;;")
-  ((lambda (x) (print x)) "Good")
+  (defun my-print (arg)
+    (print arg))
+  (my-print "")
+  (my-print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;")
+  ((lambda (x) (my-print x)) "Good")
   ((lambda (x)
-     ((lambda () (print x)))) "bye!"))
+     ((lambda () (my-print x)))) "bye!"))
