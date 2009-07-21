@@ -97,11 +97,11 @@
 
         $P0 = subclass "FUNCTION", "SPECIAL-OPERATOR"
 
-        $P0 = subclass "FUNCTION", "MACRO"
-
         $P0 = subclass "FUNCTION", "CLOSURE"
         addattribute $P0, 'venv'
         addattribute $P0, 'fenv'
+
+        $P0 = subclass "CLOSURE", "MACRO"
 
         $P0 = newclass "PACKAGE"
         addattribute $P0, 'name'
@@ -196,16 +196,28 @@ special_operator:
         $P1 = 'invoke_special_op'($P0, args, venv, fenv)
         .return($P1)
 macro:
-        $P1 = 'invoke_macro'($P0, args, venv, fenv)
+        $P1 = '%eval-application-closure'($P0, args, venv, fenv)
+        say "macro"
+        say $P1
+        say "macro"
         $P1 = '%eval'($P1, venv, fenv)
         .return($P1)
 closure:
+        $P1 = '%eval-application-closure'($P0, args, venv, fenv)
+        .return($P1)
+.end
+
+.sub '%eval-application-closure'
+        .param pmc closure
+        .param pmc args
+        .param pmc venv
+        .param pmc fenv
         .local pmc d_venv
         .local pmc lambda_list
         .local pmc body
-        d_venv = $P0.'venv'()
-        lambda_list = $P0.'lambda-list'()
-        body = $P0.'body'()
+        d_venv = closure.'venv'()
+        lambda_list = closure.'lambda-list'()
+        body = closure.'body'()
         args = '%eval-list'(args, venv, fenv)
         d_venv = 'extend_env'(d_venv, lambda_list, args)
         $P1 = 'progn'(body, d_venv, fenv)

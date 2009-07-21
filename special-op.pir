@@ -29,6 +29,8 @@ lambda は違うんだ。
         '%init-special-operator'(package, "LAMBDA",    'lambda')
         ## defun はちがう
         '%init-special-operator'(package, "DEFUN",     'defun')
+        ## defmacro はちがう
+        '%init-special-operator'(package, "DEFMACRO",  'defmacro')
 .end
 
 .sub '%init-special-operator'
@@ -141,6 +143,33 @@ else:
         .local pmc symbol
         .local pmc package
         lambda = new "CLOSURE"
+        name = arg.'car'()
+        lambda.'setf-name'(name)
+        arg = arg.'cdr'()
+        lambda_list = arg.'car'()
+        lambda.'setf-lambda-list'(lambda_list)
+        body = arg.'cdr'()
+        lambda.'setf-body'(body)
+        lambda.'setf-venv'(venv)
+        lambda.'setf-fenv'(fenv)
+        package = get_global "ROOT-PACKAGE"
+        symbol = package.'%intern'(name)
+        symbol.'setf-symbol-function'(lambda)
+        .return(lambda)
+.end
+
+## defmacro はスペシャルオペレータじゃないんだけど。。。
+.sub 'defmacro'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc lambda
+        .local pmc name
+        .local pmc lambda_list
+        .local pmc body
+        .local pmc symbol
+        .local pmc package
+        lambda = new "MACRO"
         name = arg.'car'()
         lambda.'setf-name'(name)
         arg = arg.'cdr'()
