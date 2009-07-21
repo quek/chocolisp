@@ -22,6 +22,8 @@ lambda は違うんだ。
 
         '%init-special-operator'(package, "QUOTE",     'quote')
         '%init-special-operator'(package, "PROGN",     'progn')
+        '%init-special-operator'(package, "IF",        'if')
+        ## lambda はちがう
         '%init-special-operator'(package, "LAMBDA",    'lambda')
 .end
 
@@ -67,6 +69,28 @@ last_exp:
         .return($P0)
 no_body:
         .return(nil)
+.end
+
+.sub 'if'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc nil
+        .local pmc test
+        .local pmc form
+        nil = get_global "NIL"
+        test = arg.'car'()
+        form = arg.'cdr'()
+        test = '%eval'(test, venv, fenv)
+        eq_addr test, nil, else
+        form = form.'car'()
+        $P0 = '%eval'(form, venv, fenv)
+        .return($P0)
+else:
+        form = form.'cdr'()
+        form = form.'car'()
+        $P0 = '%eval'(form, venv, fenv)
+        .return($P0)
 .end
 
 ## lambda はスペシャルオペレータじゃないんだけど。。。

@@ -46,26 +46,30 @@
 .sub '%initialize'
         '%define-classes'()
 
-        $P0 = new 'NULL'
-        set_global "NIL", $P0
-
         .local pmc package
         package = '%make-package'("CHOCO")
         $P1 = package.'%intern'("*PACKAGE*")
         $P1.'setf-symbol-value'(package)
         set_global "*PACKAGE*", $P1
 
-        'init-bif'()
-        'init-special-operator'()
+        .local pmc nil
+        nil = new "NULL"
+        nil.'setf-symbol-value'($P0)
+        nil.'setf-symbol-name'("NIL")
+        nil.'setf-symbol-package'(package)
+        $P2 = package.'internal-symbols'()
+        $P2["NIL"] = nil
+        set_global "NIL", nil
 
         .local pmc lambda
         lambda = package.'%intern'("LAMBDA")
         set_global "LAMBDA", lambda
+
+        'init-bif'()
+        'init-special-operator'()
 .end
 
 .sub '%define-classes'
-
-        $P0 = newclass "NULL"
 
         $P0 = newclass "CONS"
         addattribute $P0, 'car'
@@ -77,6 +81,8 @@
         addattribute $P0, 'function'
         addattribute $P0, 'package'
         addattribute $P0, 'plist'
+
+        $P0 = subclass "SYMBOL", "NULL"
 
         $P0 = newclass "FUNCTION"
         addattribute $P0, 'name'
@@ -346,6 +352,14 @@ error:
 
 
 .namespace [ "NULL" ]
+
+.sub 'car' :method
+        .return(self)
+.end
+
+.sub 'cdr' :method
+        .return(self)
+.end
 
 .sub get_string :vtable :method
         .return("nil")
