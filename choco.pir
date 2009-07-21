@@ -119,19 +119,21 @@
 
 
 .sub '%eval'
-        .param pmc arg
-        $P0 = typeof arg
+        .param pmc exp
+        .param pmc venv
+        .param pmc fenv
+        $P0 = typeof exp
         if $P0 == 'CONS' goto cons
         goto atom
 cons:
-        $P1 = 'function'(arg)
-        $P2 = arg.'cdr'()
+        $P1 = 'function'(exp)
+        $P2 = exp.'cdr'()
         $I0 = isa $P1, "SPECIAL-OPERATOR"
         if $I0 goto special_operator
         $I0 = isa $P1, "MACRO"
         if $I0 goto macro
 function:
-        $P2 = '%eval-arg'($P2)
+        $P2 = '%eval-list'($P2, venv, fenv)
         $P3 = '%apply'($P1, $P2)
         .return($P3)
 macro:
@@ -142,23 +144,25 @@ special_operator:
         .return($P3)
 atom:
         if $P0 == "SYMBOL" goto symbol
-        .return(arg)
+        .return(exp)
 symbol:
-        $P3 = arg.'symbol-value'()
+        $P3 = exp.'symbol-value'()
         .return($P3)
 .end
 
-.sub '%eval-arg'
-        .param pmc args
+.sub '%eval-list'
+        .param pmc list
+        .param pmc venv
+        .param pmc fenv
         .local pmc nil
         nil = get_global "NIL"
-        eq_addr args, nil, endp
+        eq_addr list, nil, endp
         .local pmc car
         .local pmc cdr
-        car = args.'car'()
-        cdr = args.'cdr'()
-        $P0 = '%eval'(car)
-        $P1 = '%eval-arg'(cdr)
+        car = list.'car'()
+        cdr = list.'cdr'()
+        $P0 = '%eval'(car, venv, fenv)
+        $P1 = '%eval-list'(cdr, venv, fenv)
         $P2 = '%cons'($P0, $P1)
         .return($P2)
 endp:
@@ -171,6 +175,17 @@ endp:
         $P0 = function.'body'()
         $P1 = $P0(args)
         .return($P1)
+.end
+
+
+.sub 'make-null-venv'
+        $P0 = get_global "NIL"
+        .return($P0)
+.end
+
+.sub 'make-null-fenv'
+        $P0 = get_global "NIL"
+        .return($P0)
 .end
 
 

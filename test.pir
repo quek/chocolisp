@@ -55,17 +55,21 @@ end:
 .sub 'test_eval'
         print "\ntest_eval"
         .local pmc nil
+        .local pmc venv
+        .local pmc fenv
         nil = get_global "NIL"
+        venv = 'make-null-venv'()
+        fenv = 'make-null-fenv'()
         .local pmc package
         package = get_global "*PACKAGE*"
         package = package.'symbol-value'()
 
 
-        $P0 = '%eval'(1)
+        $P0 = '%eval'(1, venv, fenv)
         'assert'(1, $P0)
 
 
-        $P0 = '%eval'("abc")
+        $P0 = '%eval'("abc", venv, fenv)
         'assert'("abc", $P0)
 
 
@@ -78,22 +82,30 @@ end:
         $P0 = '%cons'(11, nil)
         $P0 = '%cons'(22, $P0)
         $P0 = '%cons'($P1, $P0)
-        $P0 = '%eval'($P0)
+        $P0 = '%eval'($P0, venv, fenv)
         'assert'(33, $P0)
 .end
 
 .sub 'test_read'
         print "\ntest_read"
+
+        .local pmc nil
+        .local pmc venv
+        .local pmc fenv
+        nil = get_global "NIL"
+        venv = 'make-null-venv'()
+        fenv = 'make-null-fenv'()
+
         .local pmc fh
         .local pmc sexp
         fh = '%open'("a.lisp", "r")
         sexp = '%read'(fh)
         ##say sexp
-        $P0 = '%eval'(sexp)
+        $P0 = '%eval'(sexp, venv, fenv)
         'assert'(30, $P0)
         sexp = '%read'(fh)
         ##say sexp
-        $P0 = '%eval'(sexp)
+        $P0 = '%eval'(sexp, venv, fenv)
         'assert'("Hello", $P0)
         '%close'(fh)
 .end
