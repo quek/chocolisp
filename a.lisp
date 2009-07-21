@@ -1,6 +1,8 @@
 (+ 10 20)
 (print "Hello")
+
 (progn
+  (print ";;;;")
   ((lambda (x) (print x)) "Good")
-  (print " ")
-  (print "bye!"))
+  ((lambda (x)
+     ((lambda () (print x)))) "bye!"))
