@@ -23,6 +23,8 @@ lambda は違うんだ。
         '%init-special-operator'(package, "QUOTE",     'quote')
         '%init-special-operator'(package, "PROGN",     'progn')
         '%init-special-operator'(package, "IF",        'if')
+        '%init-special-operator'(package, "SETQ",      'setq')
+
         ## lambda はちがう
         '%init-special-operator'(package, "LAMBDA",    'lambda')
         ## defun はちがう
@@ -93,6 +95,19 @@ else:
         form = form.'car'()
         $P0 = '%eval'(form, venv, fenv)
         .return($P0)
+.end
+
+.sub 'setq'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc symbol
+        .local pmc value
+        symbol = arg.'car'()
+        value = arg.'cdr'()
+        value = value.'car'()
+        symbol.'setf-symbol-value'(value)
+        .return(value)
 .end
 
 ## lambda はスペシャルオペレータじゃないんだけど。。。
