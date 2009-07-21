@@ -25,7 +25,7 @@ defun等、関数を定義する命令
         '%init-bif'(package, "RPLACD",   'rplacd')
         '%init-bif'(package, "+",        '+')
         '%init-bif'(package, "-",        '-')
-        '%init-bif'(package, "print",    'print')
+        '%init-bif'(package, "PRINT",    'print')
 .end
 
 .sub '%init-bif'

@@ -54,6 +54,10 @@
         $P1.'setf-symbol-value'($P0)
         set_global "*PACKAGE*", $P1
 
+        $P1 = $P0.'%intern'("LAMBDA")
+        $P1.'setf-symbol-value'($P0)
+        set_global "LAMBDA", $P1
+
         'init-bif'()
         'init-special-operator'()
 .end

@@ -52,6 +52,7 @@ symbol:
         .local pmc package
         _package_ = get_global "*PACKAGE*"
         package = _package_.'symbol-value'()
+        buffer = upcase buffer
         $P0 = package.'%intern'(buffer)
         .return($P0)
 loop_string:
