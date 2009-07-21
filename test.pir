@@ -103,9 +103,13 @@ end:
         ##say sexp
         $P0 = '%eval'(sexp, venv, fenv)
         'assert'(30, $P0)
-        sexp = '%read'(fh)
         ##say sexp
+        sexp = '%read'(fh)
         $P0 = '%eval'(sexp, venv, fenv)
         'assert'("Hello", $P0)
+        ## Good bye!
+        sexp = '%read'(fh)
+        $P0 = '%eval'(sexp, venv, fenv)
+
         '%close'(fh)
 .end

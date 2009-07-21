@@ -49,17 +49,18 @@
         $P0 = new 'NULL'
         set_global "NIL", $P0
 
-        $P0 = '%make-package'("CHOCO")
-        $P1 = $P0.'%intern'("*PACKAGE*")
-        $P1.'setf-symbol-value'($P0)
+        .local pmc package
+        package = '%make-package'("CHOCO")
+        $P1 = package.'%intern'("*PACKAGE*")
+        $P1.'setf-symbol-value'(package)
         set_global "*PACKAGE*", $P1
-
-        $P1 = $P0.'%intern'("LAMBDA")
-        $P1.'setf-symbol-value'($P0)
-        set_global "LAMBDA", $P1
 
         'init-bif'()
         'init-special-operator'()
+
+        .local pmc lambda
+        lambda = package.'%intern'("LAMBDA")
+        set_global "LAMBDA", lambda
 .end
 
 .sub '%define-classes'
@@ -79,12 +80,16 @@
 
         $P0 = newclass "FUNCTION"
         addattribute $P0, 'name'
-        addattribute $P0, 'args'
+        addattribute $P0, 'lambda-list'
         addattribute $P0, 'body'
 
         $P0 = subclass "FUNCTION", "SPECIAL-OPERATOR"
 
         $P0 = subclass "FUNCTION", "MACRO"
+
+        $P0 = subclass "FUNCTION", "CLOSURE"
+        addattribute $P0, 'venv'
+        addattribute $P0, 'fenv'
 
         $P0 = newclass "PACKAGE"
         addattribute $P0, 'name'
@@ -149,7 +154,18 @@ symbol:
         .param pmc fenv
         $I0 = isa f, "SYMBOL"
         if $I0 goto symbol
-        ## todo (lambda (...) ...)
+        $I0 = 'lambdap'(f)
+        if $I0 == 0 goto error
+        .local pmc lambda_list
+        .local pmc body
+        lambda_list = f.'cdr'()
+        lambda_list = lambda_list.'car'()
+        body = f.'cdr'()
+        body = body.'cdr'()
+        venv = 'extend_env'(venv, lambda_list, args)
+        $P1 = 'progn'(body, venv, fenv)
+        .return($P1)
+error:
         $P0 = new "Exception"
         throw $P0
 symbol:
@@ -158,6 +174,8 @@ symbol:
         if $I0 goto special_operator
         $I0 = isa $P0, "MACRO"
         if $I0 goto macro
+        $I0 = isa $P0, "CLOSURE"
+        if $I0 goto closure
         ## function
         args = '%eval-list'(args, venv, fenv)
         $P1 = '%apply'($P0, args)
@@ -168,6 +186,29 @@ special_operator:
 macro:
         $P1 = 'invoke_macro'($P0, args, venv, fenv)
         .return($P1)
+closure:
+        .local pmc d_venv
+        .local pmc lambda_list
+        .local pmc body
+        d_venv = $P0.'venv'()
+        lambda_list = $P0.'lambda-list'()
+        body = $P0.'body'()
+        d_venv = 'extend_env'(d_venv, lambda_list, args)
+        $P1 = 'progn'(body, d_venv, fenv)
+        .return($P1)
+.end
+
+.sub 'lambdap'
+        .param pmc f
+        .local pmc car
+        .local pmc lambda
+        car = f.'car'()
+        .local pmc package
+        lambda = get_global "LAMBDA"
+        eq_addr car, lambda, true
+        .return(0)
+true:
+        .return(1)
 .end
 
 .sub '%eval-list'
@@ -228,15 +269,34 @@ endp:
         .return($P0)
 .end
 
+.sub 'extend_env'
+        .param pmc env
+        .param pmc vars
+        .param pmc vals
+        .local pmc nil
+        nil = get_global "NIL"
+loop:
+        eq_addr vars, nil, end
+        $P0 = vars.'car'()
+        $P1 = vals.'car'()
+        $P2 = '%cons'($P0, $P1)
+        env = '%cons'($P2, env)
+        vars = vars.'cdr'()
+        vals = vals.'cdr'()
+        goto loop
+end:
+        .return(env)
+.end
+
 .sub 'lookup-value'
         .param pmc symbol
         .param pmc env
         .local pmc nil
         nil = get_global "NIL"
-        eq nil, env, global
+        eq_addr nil, env, global
         $P0 = env.'car'()
         $P1 = $P0.'car'()
-        eq $P1, symbol, found
+        eq_addr $P1, symbol, found
         $P0 = env.'cdr'()
         $P2 = 'lookup-value'(symbol, $P0)
         .return($P2)
@@ -264,7 +324,7 @@ error:
         eq_addr nil, env, global
         $P0 = env.'car'()
         $P1 = $P0.'car'()
-        eq $P1, symbol, found
+        eq_addr $P1, symbol, found
         $P0 = env.'cdr'()
         $P2 = 'lookup-function'(symbol, $P0)
         .return($P2)
@@ -334,10 +394,17 @@ error:
 .namespace [ "FUNCTION" ]
 .define_reader('name', 'name')
 .define_reader('body', 'body')
-.define_reader('args', 'args')
+.define_reader('lambda-list', 'lambda-list')
 .define_writer('setf-name', 'name')
 .define_writer('setf-body', 'body')
-.define_writer('setf-args', 'args')
+.define_writer('setf-lambda-list', 'lambda-list')
+
+
+.namespace [ "CLOSURE" ]
+.define_reader('venv', 'venv')
+.define_reader('fenv', 'fenv')
+.define_writer('setf-venv', 'venv')
+.define_writer('setf-fenv', 'fenv')
 
 
 .namespace [ "PACKAGE" ]

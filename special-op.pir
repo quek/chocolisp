@@ -21,7 +21,8 @@ lambda は違うんだ。
         package = package.'symbol-value'()
 
         '%init-special-operator'(package, "QUOTE",     'quote')
-        '%init-special-operator'(package, "FUNCTION",  'function')
+        '%init-special-operator'(package, "PROGN",     'progn')
+        '%init-special-operator'(package, "LAMBDA",    'lambda')
 .end
 
 .sub '%init-special-operator'
@@ -30,11 +31,12 @@ lambda は違うんだ。
         .param string op_name
         .local pmc symbol
         .local pmc op
+        .local pmc op_sub
         symbol = package.'%intern'(symbol_name)
-        op = get_global op_name
         op = new "SPECIAL-OPERATOR"
         op.'setf-name'(symbol_name)
-        op.'setf-body'(op)
+        op_sub = get_global op_name
+        op.'setf-body'(op_sub)
         symbol.'setf-symbol-function'(op)
 .end
 
@@ -45,6 +47,47 @@ lambda は違うんだ。
         $P0 = arg.'car'()
         .return($P0)
 .end
+
+.sub 'progn'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc nil
+        nil = get_global "NIL"
+        eq_addr arg, nil, no_body
+        .local pmc car
+        .local pmc cdr
+        car = arg.'car'()
+        cdr = arg.'cdr'()
+        $P0 = '%eval'(car, venv, fenv)
+        eq_addr cdr, nil, last_exp
+        $P0 = 'progn'(cdr, venv, fenv)
+        .return($P0)
+last_exp:
+        .return($P0)
+no_body:
+        .return(nil)
+.end
+
+## lambda はスペシャルオペレータじゃないんだけど。。。
+.sub 'lambda'
+        .param pmc arg
+        .param pmc venv
+        .param pmc fenv
+        .local pmc lambda
+        .local pmc lambda_list
+        .local pmc body
+        lambda = new "CLOSURE"
+        lambda.'setf-name'("LAMBDA")
+        lambda_list = arg.'car'()
+        lambda.'setf-lambda-list'(lambda_list)
+        body = arg.'cdr'()
+        lambda.'setf-body'(body)
+        lambda.'setf-venv'(venv)
+        lambda.'setf-fenv'(fenv)
+        .return(lambda)
+.end
+
 
 ##.sub 'function'
 ##        .param pmc arg
