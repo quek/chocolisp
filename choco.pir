@@ -196,6 +196,7 @@ special_operator:
         .return($P1)
 macro:
         $P1 = 'invoke_macro'($P0, args, venv, fenv)
+        $P1 = '%eval'($P1, venv, fenv)
         .return($P1)
 closure:
         .local pmc d_venv
