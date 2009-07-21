@@ -68,15 +68,20 @@ string_end:
 
 .sub '%read-list'
         .param pmc fh
+start:
         '%skip-whitespace'(fh)
         $S0 = peek fh
         eq "", $S0, error
+        eq ";", $S0, comment
         eq ")", $S0, ret_nil
         eq "(", $S0, read_list
         $P0 = '%read-atom'(fh)
         $P1 = '%read-list'(fh)
         $P2 = '%cons'($P0, $P1)
         .return($P2)
+comment:
+        '%read-comment'(fh)
+        goto start
 read_list:
         '%read-char'(fh)
         $P0 = '%read-list'(fh)
@@ -93,18 +98,32 @@ error:
         throw $P0
 .end
 
+.sub '%read-comment'
+        .param pmc fh
+start:
+        $S0 = '%read-char'(fh)
+        eq "\n", $S0, end
+        goto start
+end:
+.end
+
 .sub '%read'
         .param pmc fh
+start:
         '%skip-whitespace'(fh)
         $S0 = peek fh
         eq "", $S0, error
         eq "(", $S0, read_list
+        eq ";", $S0, comment
         $P0 = '%read-atom'(fh)
         .return($P0)
 read_list:
         '%read-char'(fh)
         $P0 = '%read-list'(fh)
         .return($P0)
+comment:
+        '%read-comment'(fh)
+        goto start
 error:
         $P0 = new "Exception"
         $P0 = "unexpected EOF!"
