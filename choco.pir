@@ -126,28 +126,44 @@
         if $P0 == 'CONS' goto cons
         goto atom
 cons:
-        $P1 = 'function'(exp)
-        $P2 = exp.'cdr'()
-        $I0 = isa $P1, "SPECIAL-OPERATOR"
-        if $I0 goto special_operator
-        $I0 = isa $P1, "MACRO"
-        if $I0 goto macro
-function:
-        $P2 = '%eval-list'($P2, venv, fenv)
-        $P3 = '%apply'($P1, $P2)
-        .return($P3)
-macro:
-        $P3 = '%apply'($P1, $P2)
-        .return($P3)
-special_operator:
-        $P3 = '%apply'($P1, $P2)
-        .return($P3)
+        $P0 = exp.'car'()
+        $P1 = exp.'cdr'()
+        $P2 = '%eval-application'($P0, $P1, venv, fenv)
+        .return($P2)
 atom:
         if $P0 == "SYMBOL" goto symbol
         .return(exp)
 symbol:
-        $P3 = exp.'symbol-value'()
+        $P3 = 'lookup-value'(exp, venv)
         .return($P3)
+.end
+
+.sub '%eval-application'
+        .param pmc f
+        .param pmc args
+        .param pmc venv
+        .param pmc fenv
+        $I0 = isa f, "SYMBOL"
+        if $I0 goto symbol
+        ## todo (lambda (...) ...)
+        $P0 = new "Exception"
+        throw $P0
+symbol:
+        $P0 = 'lookup-function'(f, fenv)
+        $I0 = isa $P0, "SPECIAL-OPERATOR"
+        if $I0 goto special_operator
+        $I0 = isa $P0, "MACRO"
+        if $I0 goto macro
+        ## function
+        args = '%eval-list'(args, venv, fenv)
+        $P1 = '%apply'($P0, args)
+        .return($P1)
+special_operator:
+        $P1 = 'invoke_special_op'($P0, args, venv, fenv)
+        .return($P1)
+macro:
+        $P1 = 'invoke_macro'($P0, args, venv, fenv)
+        .return($P1)
 .end
 
 .sub '%eval-list'
@@ -177,6 +193,26 @@ endp:
         .return($P1)
 .end
 
+.sub 'invoke_special_op'
+        .param pmc special_op
+        .param pmc args
+        .param pmc venv
+        .param pmc fenv
+        $P0 = special_op.'body'()
+        $P1 = $P0(args, venv, fenv)
+        .return($P1)
+.end
+
+.sub 'invoke_macro'
+        .param pmc macro
+        .param pmc args
+        .param pmc venv
+        .param pmc fenv
+        $P0 = macro.'body'()
+        $P1 = $P0(args, venv, fenv)
+        .return($P1)
+.end
+
 
 .sub 'make-null-venv'
         $P0 = get_global "NIL"
@@ -188,6 +224,61 @@ endp:
         .return($P0)
 .end
 
+.sub 'lookup-value'
+        .param pmc symbol
+        .param pmc env
+        .local pmc nil
+        nil = get_global "NIL"
+        eq nil, env, global
+        $P0 = env.'car'()
+        $P1 = $P0.'car'()
+        eq $P1, symbol, found
+        $P0 = env.'cdr'()
+        $P2 = 'lookup-value'(symbol, $P0)
+        .return($P2)
+found:
+        $P2 = $P0.'cdr'()
+        .return($P2)
+global:
+        $P0 = symbol.'symbol-value'()
+        $I0 = isnull $P0
+        if $I0 goto error
+        .return($P0)
+error:
+        $P0 = new "Exception"
+        $S0 = symbol.'symbol-name'()
+        $S0 .= " is unbound!"
+        $P0 = $S0
+        throw $P0
+.end
+
+.sub 'lookup-function'
+        .param pmc symbol
+        .param pmc env
+        .local pmc nil
+        nil = get_global "NIL"
+        eq_addr nil, env, global
+        $P0 = env.'car'()
+        $P1 = $P0.'car'()
+        eq $P1, symbol, found
+        $P0 = env.'cdr'()
+        $P2 = 'lookup-function'(symbol, $P0)
+        .return($P2)
+found:
+        $P2 = $P0.'cdr'()
+        .return($P2)
+global:
+        $P0 = symbol.'symbol-function'()
+        $I0 = isnull $P0
+        if $I0 goto error
+        .return($P0)
+error:
+        $P0 = new "Exception"
+        $S0 = symbol.'symbol-name'()
+        $S0 .= " is unbound!"
+        $P0 = $S0
+        throw $P0
+.end
 
 
 .namespace [ "NULL" ]

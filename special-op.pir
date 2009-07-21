@@ -40,14 +40,16 @@ lambda は違うんだ。
 
 .sub 'quote'
         .param pmc arg
+        .param pmc venv
+        .param pmc fenv
         $P0 = arg.'car'()
         .return($P0)
 .end
 
-.sub 'function'
-        .param pmc arg
-        ## TODO flet labels macrolet
-        $P0 = arg.'car'()
-        $P0 = $P0.'symbol-function'()
-        .return($P0)
-.end
+##.sub 'function'
+##        .param pmc arg
+##        ## TODO flet labels macrolet
+##        $P0 = arg.'car'()
+##        $P0 = $P0.'symbol-function'()
+##        .return($P0)
+##.end
