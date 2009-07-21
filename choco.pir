@@ -61,6 +61,11 @@
         $P2["NIL"] = nil
         set_global "NIL", nil
 
+        .local pmc t
+        t = package.'%intern'("T")
+        t.'setf-symbol-value'(t)
+        set_global "T", t
+
         .local pmc lambda
         lambda = package.'%intern'("LAMBDA")
         set_global "LAMBDA", lambda

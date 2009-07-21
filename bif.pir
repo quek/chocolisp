@@ -18,6 +18,8 @@ defun等、関数を定義する命令
         package = get_global "*PACKAGE*"
         package = package.'symbol-value'()
 
+        '%init-bif'(package, "EQ",       'eq')
+        '%init-bif'(package, "ATOM",     'atom')
         '%init-bif'(package, "CONS",     'cons')
         '%init-bif'(package, "CAR",      'car')
         '%init-bif'(package, "CDR",      'cdr')
@@ -42,6 +44,37 @@ defun等、関数を定義する命令
         function.'setf-body'(sub)
         symbol.'setf-symbol-function'(function)
 .end
+
+.sub 'eq'
+        .param pmc arg
+        .local pmc x
+        .local pmc y
+
+        x = arg.'car'()
+        y = arg.'cdr'()
+        y = y.'car'()
+        eq_addr x, y, true
+        $P0 = get_global "NIL"
+        .return($P0)
+true:
+        $P0 = get_global "T"
+        .return($P0)
+.end
+
+.sub 'atom'
+        .param pmc arg
+        .local pmc x
+
+        x = arg.'car'()
+        $I0 = isa x, "CONS"
+        if $I0 goto true
+        $P0 = get_global "NIL"
+        .return($P0)
+true:
+        $P0 = get_global "T"
+        .return($P0)
+.end
+
 
 .sub 'cons'
         .param pmc arg
