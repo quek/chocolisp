@@ -11,9 +11,13 @@
     200)
 
 (progn
+  (print "")
+  (print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;")
+  (print (eq 0 0))
+  (print (eq (quote a) (quote a)))
+  (print (eq "a" "a"))
   (defun my-print (arg)
     (print arg))
-  (my-print "")
   (my-print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;")
   ((lambda (x) (my-print x)) "Good")
   ((lambda (x)
