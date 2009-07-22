@@ -27,6 +27,9 @@ defun等、関数を定義する命令
         '%init-bif'(package, "RPLACD",   'rplacd')
         '%init-bif'(package, "+",        '+')
         '%init-bif'(package, "-",        '-')
+        '%init-bif'(package, "=",        '=')
+        '%init-bif'(package, "string=",  'string=')
+        '%init-bif'(package, "PRINC",    'princ')
         '%init-bif'(package, "PRINT",    'print')
 .end
 
@@ -142,6 +145,39 @@ true:
         $P2 = $P1.'car'()
         $P3 = $P0 - $P2
         .return($P3)
+.end
+
+.sub '='
+        .param pmc arg
+        $P0 = arg.'car'()
+        $P1 = arg.'cdr'()
+        $P2 = $P1.'car'()
+        eq_num $P1, $P2, t
+        $P3 = get_global "NIL"
+        .return($P3)
+t:
+        $P3 = get_global "T"
+        .return($P3)
+.end
+
+.sub 'string='
+        .param pmc arg
+        $P0 = arg.'car'()
+        $P1 = arg.'cdr'()
+        $P2 = $P1.'car'()
+        eq_str $P1, $P2, t
+        $P3 = get_global "NIL"
+        .return($P3)
+t:
+        $P3 = get_global "T"
+        .return($P3)
+.end
+
+.sub 'princ'
+        .param pmc arg
+        $P0 = arg.'car'()
+        print $P0
+        .return($P0)
 .end
 
 .sub 'print'
