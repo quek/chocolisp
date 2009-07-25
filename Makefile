@@ -1,5 +1,6 @@
 all:
-	parrot choco.pir
+	parrot continuation-interpreter.pir
+#	parrot choco.pir
 
 trace:
 	parrot -t choco.pir

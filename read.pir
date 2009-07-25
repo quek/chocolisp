@@ -1,5 +1,3 @@
-.namespace ["CHOCO"]
-
 .sub '%open'
         .param string file
         .param string mode

@@ -11,34 +11,32 @@ defun等、関数を定義する命令
 
 =cut
 
-.sub 'init-bif'
-        .local pmc package
-        package = get_global "*PACKAGE*"
-        package = package.'symbol-value'()
+.sub 'init-primitive'
+        .param pmc package
 
-        '%init-bif'(package, "EQ",       'eq')
-        '%init-bif'(package, "ATOM",     'atom')
-        '%init-bif'(package, "CONS",     'cons')
-        '%init-bif'(package, "CAR",      'car')
-        '%init-bif'(package, "CDR",      'cdr')
-        '%init-bif'(package, "RPLACA",   'rplaca')
-        '%init-bif'(package, "RPLACD",   'rplacd')
-        '%init-bif'(package, "+",        '+')
-        '%init-bif'(package, "-",        '-')
-        '%init-bif'(package, "=",        '=')
-        '%init-bif'(package, "string=",  'string=')
-        '%init-bif'(package, "PRINC",    'princ')
-        '%init-bif'(package, "PRINT",    'print')
+        '%init-primitive'(package, "EQ",       '%eq')
+        '%init-primitive'(package, "ATOM",     '%atom')
+        '%init-primitive'(package, "CONS",     '%cons')
+        '%init-primitive'(package, "CAR",      '%car')
+        '%init-primitive'(package, "CDR",      '%cdr')
+        '%init-primitive'(package, "RPLACA",   '%rplaca')
+        '%init-primitive'(package, "RPLACD",   '%rplacd')
+        '%init-primitive'(package, "+",        '%+')
+        '%init-primitive'(package, "-",        '%-')
+        '%init-primitive'(package, "=",        '%=')
+        '%init-primitive'(package, "string=",  '%string=')
+        '%init-primitive'(package, "PRINC",    '%princ')
+        '%init-primitive'(package, "PRINT",    '%print')
 .end
 
-.sub '%init-bif'
+.sub '%init-primitive'
         .param pmc package
         .param string symbol_name
         .param string sub_name
         .local pmc symbol
         .local pmc sub
         .local pmc function
-        symbol = package.'%intern'(symbol_name)
+        symbol = package.'intern'(symbol_name)
         sub = get_global sub_name
         function = new "FUNCTION"
         function.'setf-name'(symbol_name)
@@ -46,7 +44,7 @@ defun等、関数を定義する命令
         symbol.'setf-symbol-function'(function)
 .end
 
-.sub 'eq'
+.sub '%eq'
         .param pmc arg
         .local pmc x
         .local pmc y
@@ -62,7 +60,7 @@ true:
         .return($P0)
 .end
 
-.sub 'atom'
+.sub '%atom'
         .param pmc arg
         .local pmc x
 
@@ -77,7 +75,7 @@ true:
 .end
 
 
-.sub 'cons'
+.sub '%cons'
         .param pmc arg
         .local pmc x
         .local pmc y
@@ -89,7 +87,7 @@ true:
         .return($P0)
 .end
 
-.sub 'car'
+.sub '%car'
         .param pmc arg
         .local pmc x
         x = arg.'car'()
@@ -97,7 +95,7 @@ true:
         .return(x)
 .end
 
-.sub 'cdr'
+.sub '%cdr'
         .param pmc arg
         .local pmc x
         x = arg.'car'()
@@ -105,7 +103,7 @@ true:
         .return(x)
 .end
 
-.sub 'rplaca'
+.sub '%rplaca'
         .param pmc arg
         .local pmc cons
         .local pmc value
@@ -116,7 +114,7 @@ true:
         .return(cons)
 .end
 
-.sub 'rplacd'
+.sub '%rplacd'
         .param pmc arg
         .local pmc cons
         .local pmc value
@@ -127,7 +125,7 @@ true:
         .return(cons)
 .end
 
-.sub '+'
+.sub '%+'
         .param pmc arg
         $P0 = arg.'car'()
         $P1 = arg.'cdr'()
@@ -136,7 +134,7 @@ true:
         .return($P3)
 .end
 
-.sub '-'
+.sub '%-'
         .param pmc arg
         $P0 = arg.'car'()
         $P1 = arg.'cdr'()
@@ -145,7 +143,7 @@ true:
         .return($P3)
 .end
 
-.sub '='
+.sub '%='
         .param pmc arg
         $P0 = arg.'car'()
         $P1 = arg.'cdr'()
@@ -158,7 +156,7 @@ t:
         .return($P3)
 .end
 
-.sub 'string='
+.sub '%string='
         .param pmc arg
         $P0 = arg.'car'()
         $P1 = arg.'cdr'()
@@ -171,14 +169,14 @@ t:
         .return($P3)
 .end
 
-.sub 'princ'
+.sub '%princ'
         .param pmc arg
         $P0 = arg.'car'()
         print $P0
         .return($P0)
 .end
 
-.sub 'print'
+.sub '%print'
         .param pmc arg
         $P0 = arg.'car'()
         say $P0
