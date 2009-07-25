@@ -12,6 +12,13 @@
         nil = nil.'find_var'("NIL")
 .endm
 
+.macro tailcall_eval(e, r, k)
+        .local pmc _evaluate_
+        _evaluate_ = get_root_namespace ["choco"; "CHIMACHO"]
+        _evaluate_ = _evaluate_.'find_sub'("evaluate")
+        .tailcall _evaluate_(.e, .r, .k)
+.endm
+
 .include "cnt-test.pir"
 .include "cnt-primitive.pir"
 .include "read.pir"
@@ -186,15 +193,6 @@ value:
 
 
 .namespace [ "VALUE" ]
-
-.sub 'evaluate*' :method
-        .param pmc e
-        .param pmc r
-        .param pmc k
-        $P1 = get_root_namespace ["choco"; "CHIMACHO"]
-        $P1 = $P1.'find_sub'('evaluate')
-        .tailcall $P1(e, r, k)
-.end
 
 .sub 'evaluate' :method
         .param pmc r
@@ -391,7 +389,7 @@ end:
         if_cont.'setf-ef'(ef)
         if_cont.'setf-r'(r)
 
-        .tailcall self.'evaluate*'(ec, r, if_cont)
+        .tailcall_eval(ec, r, if_cont)
 .end
 
 
@@ -412,8 +410,9 @@ end:
         eq_addr nil, v, false
 true:
         e = self.'et'()
-        .tailcall self.'evaluate*'(e, r, k)
+        .tailcall_eval(e, r, k)
 false:
         e = self.'ef'()
-        .tailcall self.'evaluate*'(e, r, k)
+        ##        .tailcall self.'evaluate*'(e, r, k)
+        .tailcall_eval(e, r, k)
 .end
