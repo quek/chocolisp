@@ -54,7 +54,7 @@
 
         .local pmc nil
         nil = new "NULL"
-        nil.'setf-symbol-value'($P0)
+        nil.'setf-symbol-value'(nil)
         nil.'setf-symbol-name'("NIL")
         nil.'setf-symbol-package'(package)
         $P2 = package.'internal-symbols'()
@@ -147,6 +147,15 @@
         addattribute $P0, 'r'
 
         $P0 = subclass "ATOM", "ENVIRONMENT"
+
+        $P0 = subclass "ENVIRONMENT", "NULL-ENV"
+
+        $P0 = subclass "ENVIRONMENT", "FULL-ENV"
+        addattribute $P0, 'others'
+        addattribute $P0, 'name'
+
+        $P0 = subclass "FULL-ENV", "VARILBLE-ENV"
+        addattribute $P0, 'value'
 .end
 
 
@@ -282,6 +291,12 @@ value:
         .return($S0)
 .end
 
+.sub 'evaluate' :method
+        .param pmc r
+        .param pmc k
+        .tailcall r.'lookup'(self, k)
+.end
+
 
 .namespace [ "FUNCTION" ]
 .define_reader('name', 'name')
@@ -413,4 +428,51 @@ false:
         e = self.'ef'()
         ##        .tailcall self.'evaluate*'(e, r, k)
         .tailcall_eval(e, r, k)
+.end
+
+
+.namespace [ "NULL-ENV" ]
+
+.sub 'lookup' :method
+        .param pmc n
+        .param pmc k
+        .local pmc value
+        value = n.'symbol-value'()
+        $I0 = isnull value
+        if $I0 goto error
+        .tailcall k.'resume'(value)
+error:
+        $P0 = new "Exception"
+        $S0 = n.'symbol-name'()
+        $S0 .= " is unbound!"
+        $P0 = $S0
+        throw $P0
+.end
+
+
+.namespace [ "FULL-ENV" ]
+
+.sub 'lookup' :method
+        .param pmc n
+        .param pmc k
+        $P0 = getattribute self, 'other'
+        .tailcall $P0.'lookup'(n, k)
+.end
+
+
+.namespace [ "VARILBLE-ENV" ]
+
+.sub 'lookup' :method
+        .param pmc n
+        .param pmc k
+        .local pmc name
+        name = getattribute self, 'name'
+        eq_addr name, n, found
+        .local pmc other
+        other = getattribute self, 'other'
+        .tailcall other.'lookup'(n, k)
+found:
+        .local pmc value
+        value = getattribute self, 'value'
+        .tailcall k.'resume'(value)
 .end

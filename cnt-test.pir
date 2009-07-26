@@ -37,8 +37,9 @@ end:
 
 .sub 'test-if'
         say "\ntest-if"
-        .local pmc op_if, cons, foo, package, k
+        .local pmc op_if, cons, foo, package, r, k
         .nil
+        r = new "NULL-ENV"
 
         package = get_global "ROOT-PACKAGE"
         op_if = package.'intern'("IF")
@@ -47,13 +48,13 @@ end:
         cons = 'cons'(777, cons)
         cons = 'cons'(op_if, cons)
         k = new "BOTTOM-CONTINUATION"
-        $P0 = 'evaluate'(cons, nil, k)
+        $P0 = 'evaluate'(cons, r, k)
         assert(111, $P0)
 
         cons = 'cons'(222, nil)
         cons = 'cons'(111, cons)
         cons = 'cons'(nil, cons)
         cons = 'cons'(op_if, cons)
-        $P0 = 'evaluate'(cons, nil, k)
+        $P0 = 'evaluate'(cons, r, k)
         assert(222, $P0)
 .end
