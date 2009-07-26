@@ -8,14 +8,12 @@
 
 .macro nil
         .local pmc nil
-        nil = get_root_namespace ["choco"; "CHIMACHO"]
-        nil = nil.'find_var'("NIL")
+        nil = get_hll_global ["CHIMACHO"], "NIL"
 .endm
 
 .macro tailcall_eval(e, r, k)
         .local pmc _evaluate_
-        _evaluate_ = get_root_namespace ["choco"; "CHIMACHO"]
-        _evaluate_ = _evaluate_.'find_sub'("evaluate")
+        _evaluate_ = get_hll_global ["CHIMACHO"], "evaluate"
         .tailcall _evaluate_(.e, .r, .k)
 .endm
 
