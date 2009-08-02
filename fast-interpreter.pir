@@ -87,8 +87,7 @@ return:
 .sub 'r-extend*'
         .param pmc r
         .param pmc ns
-        r.'unshift'(ns)
-        .return(r)
+        .tailcall 'cons'(ns, r)
 .end
 
 .sub 'cons'
@@ -143,11 +142,36 @@ true:
         .param pmc r
         .param int i
         .param pmc n
+        .nil
         $I0 = 'consp'(r)
-        if $I0 goto l1
-        .return(0)
-l1:
-        ## ちょっとわからなくなった。
+        if $I0 goto scan
+        .return(nil)
+scan:
+        .local pmc names
+        names = r.'car'()
+        .local int j
+        j = 0
+loop:
+        $I0 = 'consp'(names)
+        if $I0 goto cons
+        $I0 = 'null'(names)
+        if $I0 goto next
+        eq_addr n, names, true
+        .return(nil)
+cons:
+        $P0 = names.'car'()
+        eq_addr $P0, n, true
+        names = names.'cdr'()
+        j += 1
+        goto loop
+next:
+        r = r.'cdr'()
+        i += 1
+        .tailcall 'local-variable?'(r, i, n)
+true:
+        $P0 = 'cons'(i, j)
+        $P0 = 'cons'("local", $P0)
+        .return($P0)
 .end
 
 .sub 'meaning'
@@ -173,7 +197,27 @@ cons:
         .param pmc quote
         .param pmc e
         .param pmc r
-        'meanig-quote'(e, r)
+        .tailcall 'meanig-quote'(e, r)
+.end
+
+.sub 'meaning-application' :multi("IF", _, _)
+        .param pmc _if
+        .param pmc e
+        .param pmc r
+        .local pmc e1, e2, e3
+        e1 = e.'car'()
+        e2 = e.'cdr'()
+        e3 = e2.'cdr'()
+        e2 = e2.'car'()
+        e3 = e3.'car'()
+        .tailcall 'meaning-alternative'(e1, e2, e3, r)
+.end
+
+.sub 'meaning-application' :multi("PROGN", _, _)
+        .param pmc progn
+        .param pmc e
+        .param pmc r
+        .tailcall 'meaning-sequence'(e, r)
 .end
 
 .sub 'meanig-quote'
@@ -193,19 +237,6 @@ cons:
         .local pmc v
         v = find_lex 'v'
         .tailcall k(v)
-.end
-
-.sub 'meaning-application' :multi("IF", _, _)
-        .param pmc _if
-        .param pmc e
-        .param pmc r
-        .local pmc e1, e2, e3
-        e1 = e.'car'()
-        e2 = e.'cdr'()
-        e3 = e2.'cdr'()
-        e2 = e2.'car'()
-        e3 = e3.'car'()
-        .tailcall 'meaning-alternative'(e1, e2, e3, r)
 .end
 
 .sub 'meaning-alternative'
@@ -252,12 +283,73 @@ false:
         .tailcall m3(sr, k)
 .end
 
+.sub 'meaning-sequence'
+        .param pmc e
+        .param pmc r
+        .nil
+        $I0 = 'consp'(e)
+        if $I0 goto cons
+        .tailcall 'meaning'(nil, r)
+cons:
+        .local pmc car, cdr
+        car = e.'car'()
+        cdr = e.'cdr'()
+        $I0 = 'consp'(cdr)
+        if $I0 goto multi
+single:
+        .tailcall 'meaning-single-sequenece'(car, r)
+multi:
+        .tailcall 'meaning-multiple-sequenece'(car, cdr, r)
+.end
+
+.sub 'meaning-single-sequenec'
+        .param pmc e
+        .param pmc r
+        .tailcall 'meaning'(e, r)
+.end
+
+.sub 'meaning-multiple-sequenece'
+        .param pmc e
+        .param pmc es
+        .param pmc r
+        .local pmc m, ms
+        m = 'meaning'(e, r)
+        ms = 'meaning-sequence'(es, r)
+        .lex 'm', m
+        .lex 'ms', ms
+        .const 'Sub' k = '%meaning-multiple-sequenece'
+        $P0 = newclosure k
+        .return($P0)
+.end
+
+.sub '%meaning-multiple-sequenece'
+        .param pmc sr
+        .param pmc k
+        .local pmc m, ms
+        .lex 'sr', sr
+        .lex 'k', k
+        m = find_lex 'm'
+        ms = find_lex 'ms'
+        .const 'Sub' kk = '%%meaning-multiple-sequenece'
+        $P0 = newclosure kk
+        .tailcall m(sr, $P0)
+.end
+
+.sub '%%meaning-multiple-sequenece'
+        .param pmc v
+        .local pmc ms, sr, k
+        ms = find_lex 'ms'
+        sr = find_lex 'sr'
+        k = find_lex 'k'
+        .tailcall ms(sr, k)
+.end
 
 
 
 .namespace [ "ACTIVATION-FRAME" ]
 
 .sub init :vtable
+        say "ACTIVATION-FRAME:init"
         $P0 = new "ResizablePMCArray"
         setattribute self, 'argument', $P0
 .end
