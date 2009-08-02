@@ -1,9 +1,12 @@
+#TARGET = choco.pir
+#TARGET = continuation-interpreter.pir
+TARGET = fast-interpreter.pir
+
 all:
-	parrot continuation-interpreter.pir
-#	parrot choco.pir
+	parrot $(TARGET)
 
 trace:
-	parrot -t choco.pir
+	parrot -t $(TARGET)
 
 pasm:
-	parrot -o - choco.pir
+	parrot -o - $(TARGET)
