@@ -14,6 +14,10 @@
 
         $P0 = subclass "T", "ATOM"
 
+        $P0 = subclass "ATOM", "CLOSURE"
+        addattribute $P0, 'code'
+        addattribute $P0, 'closed-environment'
+
         $P0 = subclass "ATOM", "PACKAGE"
         addattribute $P0, 'name'
         addattribute $P0, 'use'
