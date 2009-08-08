@@ -1,5 +1,6 @@
 .sub init :load :init
         say "primitive..."
+        .nil
 
         'init-prim'("CAR", 'car', 1)
         'init-prim'("CDR", 'cdr', 1)

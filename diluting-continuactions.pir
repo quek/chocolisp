@@ -41,17 +41,23 @@
         sr_init = get_global "sr_init"
         set_hll_global ["CHIMACHO"], "*env*", sr_init
 toplevel:
-        .local pmc sexp
+        .local pmc sexp, quote
         .nil
         .package
         nil = get_hll_global ["CHIMACHO"], "NIL"
         sexp = 'cons'(1, 2)
         sexp = 'cons'(sexp, nil)
+        quote = package.'intern'("QUOTE")
+        sexp = 'cons'(quote, sexp)
+        sexp = 'cons'(sexp, nil)
         $P0 = package.'intern'("CAR")
         sexp = 'cons'($P0, sexp)
         .local pmc m
+        say sexp
         m = 'meaning'(sexp, nil)
         say m
+        $P0 = m()
+        say $P0
 .end
 
 .sub init :load :init
@@ -204,10 +210,11 @@ predefined:
         i = kind.'cdr'()
         .tailcall 'PREDEFINED'(i)
 error:
-        $P0 = new "STATIC-WRONG"
-        $P0 = "No such variable "
-        $S0 = n.'name'()
-        $P0 .= $S0
+        $P0 = new 'Exception'
+        $S0 = "No such variable "
+        $S1 = n.'name'()
+        $S0 .= $S1
+        $P0 = $S0
         throw $P0
 .end
 
@@ -217,7 +224,7 @@ error:
         .param pmc r
         .local pmc v
         v = e.'car'()
-        .tailcall 'meanig-quote'(v, r)
+        .tailcall 'meaning-quote'(v, r)
 .end
 
 .sub 'meaning-application' :multi("IF", _, _)
@@ -302,7 +309,7 @@ false:
         .return(0)
 .end
 
-.sub 'meanig-quote'
+.sub 'meaning-quote'
         .param pmc v
         .param pmc r
         .tailcall 'CONSTANT'(v)

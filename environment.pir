@@ -16,7 +16,10 @@
 
         set_global "r.init", nil
 
-        set_global "sr_init", nil
+        set_global "sr.init", nil
+
+        $P0 = new 'Hash'
+        set_global "desc.init", $P0
 .end
 
 .sub 'g.current-extend!'
@@ -185,4 +188,21 @@ true:
         .param pmc n
         $P0 = g[n]
         .return($P0)
+.end
+
+.sub 'description-extend!'
+        .param string name
+        .param pmc description
+        .local pmc desc_init, x
+        desc_init = get_global "desc.init"
+        desc_init[name] = description
+        .return(name)
+.end
+
+.sub 'get-description'
+        .param string name
+        .local pmc desc_init, description
+        desc_init = get_global "desc.init"
+        description = desc_init[name]
+        .return(description)
 .end
