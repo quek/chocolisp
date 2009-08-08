@@ -42,4 +42,7 @@
         $P0 = subclass "SYMBOL", "PROGN"
 
         $P0 = subclass "SYMBOL", "SETQ"
+
+
+        $P0 = subclass "Exception", "STATIC-WRONG"
 .end

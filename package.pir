@@ -1,5 +1,18 @@
 .namespace [ "PACKAGE" ]
 
+.sub init :load :init
+        .local pmc package
+        package = new "PACKAGE"
+        $P0 = new 'String'
+        $P0 = "COMMON-LISP"
+        setattribute package, 'name', $P0
+        $P0 = new 'ResizablePMCArray'
+        setattribute package, 'external-symbols', $P0
+        $P0 = new 'ResizablePMCArray'
+        setattribute package, 'internal-symbols', $P0
+        set_hll_global ["CHIMACHO"], "*PACKAGE*", package
+.end
+
 .sub 'find-symbol' :method
         .param string name
         .local pmc external

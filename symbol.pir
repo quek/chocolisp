@@ -1,5 +1,10 @@
 .namespace [ "SYMBOL" ]
 
+.sub get_string :vtable :method
+        $P0 = getattribute self, 'name'
+        .return($P0)
+.end
+
 .sub 'name' :method
         $P0 = getattribute self, 'name'
         .return($P0)
