@@ -6,9 +6,9 @@
         $P0 = new 'String'
         $P0 = "COMMON-LISP"
         setattribute package, 'name', $P0
-        $P0 = new 'ResizablePMCArray'
+        $P0 = new 'Hash'
         setattribute package, 'external-symbols', $P0
-        $P0 = new 'ResizablePMCArray'
+        $P0 = new 'Hash'
         setattribute package, 'internal-symbols', $P0
         set_hll_global ["CHIMACHO"], "*PACKAGE*", package
 .end
@@ -39,8 +39,9 @@ intern:
         symbol = new "SYMBOL"
         symbol.'name!'(name)
         symbol.'package!'(self)
-        $P0 = getattribute self, 'internal-symbols'
-        $P0[name] = symbol
+        .local pmc external
+        external = getattribute self, 'external-symbols'
+        external[name] = symbol
         .return(symbol)
 .end
 

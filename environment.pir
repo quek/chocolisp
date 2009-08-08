@@ -143,14 +143,46 @@ l_init:
         .tailcall 'global-variable?'(g_init, n)
 .end
 
+.sub 'local-variable?'
+        .param pmc r
+        .param int i
+        .param pmc n
+        .local pmc nul
+        null nul
+        $I0 = 'consp'(r)
+        if $I0 goto scan
+        .return(nul)
+scan:
+        .local pmc names
+        names = r.'car'()
+        .local int j
+        j = 0
+loop:
+        $I0 = 'consp'(names)
+        if $I0 goto cons
+        $I0 = 'null'(names)
+        if $I0 goto next
+        eq_addr n, names, true
+        .return(nul)
+cons:
+        $P0 = names.'car'()
+        eq_addr $P0, n, true
+        names = names.'cdr'()
+        j += 1
+        goto loop
+next:
+        r = r.'cdr'()
+        i += 1
+        .tailcall 'local-variable?'(r, i, n)
+true:
+        $P0 = 'cons'(i, j)
+        $P0 = 'cons'("local", $P0)
+        .return($P0)
+.end
+
 .sub 'global-variable?'
         .param pmc g
         .param pmc n
         $P0 = g[n]
-        $I0 = isnull $P0
-        if $I0 goto end
-        $P0 = $P0.'cdr'()
-end:
         .return($P0)
 .end
-

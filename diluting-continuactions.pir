@@ -46,9 +46,12 @@ toplevel:
         .package
         nil = get_hll_global ["CHIMACHO"], "NIL"
         sexp = 'cons'(1, 2)
+        sexp = 'cons'(sexp, nil)
         $P0 = package.'intern'("CAR")
         sexp = 'cons'($P0, sexp)
-        say sexp
+        .local pmc m
+        m = 'meaning'(sexp, nil)
+        say m
 .end
 
 .sub init :load :init
@@ -150,46 +153,10 @@ true:
         .return(1)
 .end
 
-.sub 'local-variable?'
-        .param pmc r
-        .param int i
-        .param pmc n
-        .local pmc nul
-        $I0 = 'consp'(r)
-        if $I0 goto scan
-        .return(nul)
-scan:
-        .local pmc names
-        names = r.'car'()
-        .local int j
-        j = 0
-loop:
-        $I0 = 'consp'(names)
-        if $I0 goto cons
-        $I0 = 'null'(names)
-        if $I0 goto next
-        eq_addr n, names, true
-        .return(nul)
-cons:
-        $P0 = names.'car'()
-        eq_addr $P0, n, true
-        names = names.'cdr'()
-        j += 1
-        goto loop
-next:
-        r = r.'cdr'()
-        i += 1
-        .tailcall 'local-variable?'(r, i, n)
-true:
-        $P0 = 'cons'(i, j)
-        $P0 = 'cons'("local", $P0)
-        .return($P0)
-.end
-
 .sub 'meaning'
         .param pmc e
         .param pmc r
-        $I0 = 'cons'(e)
+        $I0 = 'consp'(e)
         if $I0 goto cons
 atom:
         $I0 = 'symbolp'(e)
@@ -320,7 +287,7 @@ regular:
         .param pmc e
         .param pmc r
         $I0 = isa e, "SYMBOL"
-        if $I0 != 0 goto false
+        if $I0 == 0 goto false
         .local pmc kind, type
         kind = 'compute-kind'(r, e)
         type = kind.'car'()

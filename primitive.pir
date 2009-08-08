@@ -1,20 +1,20 @@
 .sub init :load :init
         say "primitive..."
 
+        'init-prim'("CAR", 'car', 1)
+        'init-prim'("CDR", 'cdr', 1)
+        'init-prim'("CONS", 'cons', 2)
+.end
+
+.sub 'init-prim'
+        .param string name
+        .param string sub_name
+        .param int arity
+        .local pmc symbol, _sub
         .package
-        .local pmc n
-
-        n = package.'intern'("CAR")
-        .const 'Sub' car = 'car'
-        'defprimitive'(n, car, 1)
-
-        n = package.'intern'("CDR")
-        .const 'Sub' cdr = 'cdr'
-        'defprimitive'(n, cdr, 1)
-
-        n = package.'intern'("CONS")
-        .const 'Sub' cons = 'cons'
-        'defprimitive'(n, cons, 2)
+        symbol = package.'intern'(name)
+        _sub = get_global sub_name
+        'defprimitive'(symbol, _sub, arity)
 .end
 
 .sub 'car'
