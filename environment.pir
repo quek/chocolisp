@@ -191,12 +191,12 @@ true:
 .end
 
 .sub 'description-extend!'
-        .param string name
+        .param pmc symbol
         .param pmc description
         .local pmc desc_init, x
         desc_init = get_global "desc.init"
-        desc_init[name] = description
-        .return(name)
+        desc_init[symbol] = description
+        .return(symbol)
 .end
 
 .sub 'get-description'

@@ -45,7 +45,7 @@ toplevel:
         .nil
         .package
         nil = get_hll_global ["CHIMACHO"], "NIL"
-        sexp = 'cons'(1, 2)
+        sexp = 'cons'(123, 456)
         sexp = 'cons'(sexp, nil)
         quote = package.'intern'("QUOTE")
         sexp = 'cons'(quote, sexp)
@@ -272,7 +272,7 @@ error:
         .param pmc e
         .param pmc es
         .param pmc r
-        $I0 = 'primitive?'(e, r)
+        $I0 = 'primitive?'(e, es, r)
         if $I0 goto primitive
         $I0 = isa e, "CONS"
         if $I0 goto cons
@@ -292,6 +292,7 @@ regular:
 
 .sub 'primitive?'
         .param pmc e
+        .param pmc es
         .param pmc r
         $I0 = isa e, "SYMBOL"
         if $I0 == 0 goto false
@@ -303,10 +304,19 @@ regular:
         desc = 'get-description'(e)
         $I0 = isnull desc
         if $I0 goto false
-        ## ちょっと省略
+        .local int es_len, arity
+        es_len = 'length'(es)
+        arity = desc.'cdr'()
+        if es_len != arity goto error
         .return(1)
 false:
         .return(0)
+error:
+        $P0 = new "STATIC-WRONG"
+        $P0 = "Incorrect arity for primitive "
+        $S0 = e
+        $P0 .= $S0
+        throw $P0
 .end
 
 .sub 'meaning-quote'
@@ -530,8 +540,7 @@ end:
         .local pmc desc, address, args, m, x
         .local int size, i
         desc = 'get-description'(e)
-        address = desc.'cdr'()
-        address = address.'car'()
+        address = desc.'car'()
         size = 'length'(es)
         args = new 'FixedPMCArray'
         args = size
@@ -611,25 +620,27 @@ cons:
 
 
 .sub 'definitial'
-        .param string name
+        .param pmc symbol
         .param pmc value
-        'g.init-initialize!'(name, value)
+        'g.init-initialize!'(symbol, value)
 .end
 
 .sub 'defprimitive'
-        .param string name
+        .param pmc symbol
         .param pmc value
         .param int arity
         .local pmc closure
-        closure = 'behavior'(value, arity)
-        .tailcall 'definitial'(name, closure)
+        closure = 'behavior'(symbol, value, arity)
+        .tailcall 'definitial'(symbol, closure)
 .end
 
 .sub 'behavior' :outer('defprimitive')
+        .param pmc symbol
         .param pmc value
-        .param int arity
+        .param pmc arity
+        .lex 'symbol', symbol
         .lex 'value', value
-        .local int arity_plus1
+        .local pmc arity_plus1
         arity_plus1 = arity + 1
         .lex 'arity_plus1', arity_plus1
         .local pmc behavior, closure, sr_init
@@ -639,6 +650,9 @@ cons:
         setattribute closure, 'code', behavior
         sr_init = get_global "sr.init"
         setattribute closure, 'closed-environment', sr_init
+        .local pmc description
+        description = 'cons'(value, arity)
+        'description-extend!'(symbol, description)
         .return(closure)
 .end
 
@@ -657,9 +671,10 @@ cons:
 error:
         $P0 = new 'Exception'
         $P0 = "Incorrect arity "
-        .local pmc name
-        name = find_lex 'name'
-        $P0 .= name
+        .local pmc symbol
+        symbol = find_lex 'symbol'
+        $S0 = symbol
+        $P0 .= $S0
         throw $P0
 .end
 

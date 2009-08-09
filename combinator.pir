@@ -31,7 +31,7 @@
 .end
 
 .sub 'PREDEFINED'
-        .local int i
+        .param pmc i
         .lex 'i', i
         .const 'Sub' k = '%PREDEFINED'
         $P0 = newclosure k
@@ -45,8 +45,8 @@
 .end
 
 .sub 'DEEP-ARGUMENT-REF'
-        .param int i
-        .param int j
+        .param pmc i
+        .param pmc j
         .lex 'i', i
         .lex 'j', j
         .const 'Sub' k = '%DEEP-ARGUMENT-REF'
@@ -62,7 +62,7 @@
 .end
 
 .sub 'GLOBAL-REF'
-        .param int i
+        .param pmc i
         .lex 'i', i
         .const 'Sub' k = '%GLOBAL-REF'
         $P0 = newclosure k
@@ -76,7 +76,7 @@
 .end
 
 .sub 'CHECKED-GLOBAL-REF'
-        .param int i
+        .param pmc i
         .lex 'i', i
         .const 'Sub' k = '%CHECKED-GLOBAL-REF'
         $P0 = newclosure k
@@ -141,8 +141,8 @@ else:
 
 .sub 'FIX-CLOSURE'
         .param pmc ms
-        .param int arity
-        .local int arity_plus1
+        .param pmc arity
+        .local pmc arity_plus1
         arity_plus1 = arity + 1
         .lex 'ms', ms
         .lex 'arity_plus1', arity_plus1
@@ -184,8 +184,8 @@ error:
 
 .sub 'NARY-CLOSURE'
         .param pmc ms
-        .param int arity
-        .local int arity_plus1
+        .param pmc arity
+        .local pmc arity_plus1
         arity_plus1 = arity + 1
         .lex 'ms', ms
         .lex 'arity', arity
@@ -246,7 +246,7 @@ error:
         f = m()
         vs = ms()
         .env
-        result = 'invoke'(f, vs)
+        result = f.'invoke'(vs)
         set_global "*env*", env
         .return(result)
 .end
@@ -254,7 +254,7 @@ error:
 .sub 'STORE-ARGUMENT'
         .param pmc m
         .param pmc ms
-        .param int rank
+        .param pmc rank
         .lex 'm', m
         .lex 'ms', ms
         .lex 'rank', rank
@@ -276,8 +276,9 @@ error:
 .end
 
 .sub 'ALLOCATE-FRAME'
-        .param int size
-        .local int size_plus1
+        .param pmc size
+        .local pmc size_plus1
+        size_plus1 = size + 1
         .lex 'size_plus1', size_plus1
         .const 'Sub' k = '%ALLOCATE-FRAME'
         $P0 = newclosure k
@@ -301,8 +302,21 @@ error:
 .end
 
 .sub '%CALL' :outer('CALL')
-        .local pmc address, args
+        .local pmc address, args, vals, arg, val
+        .local int size, i
         address = find_lex 'address'
         args = find_lex 'args'
-        .tailcall address(args :flat)
+        vals = new 'FixedPMCArray'
+        size = args
+        vals = size
+        i = 0
+loop:
+        if i == size goto end
+        arg = args[i]
+        val = arg()
+        vals[i] = val
+        i += 1
+        goto loop
+end:
+        .tailcall address(vals :flat)
 .end
