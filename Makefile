@@ -1,7 +1,7 @@
 #TARGET = choco.pir
 #TARGET = continuation-interpreter.pir
 #TARGET = fast-interpreter.pir
-TARGET = diluting-continuactions.pir
+TARGET = interpreter.pir
 
 all:
 	parrot $(TARGET)
