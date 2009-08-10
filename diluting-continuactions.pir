@@ -24,6 +24,7 @@
 .macro package
         .local pmc package
         package = get_hll_global ["CHIMACHO"], "*PACKAGE*"
+        package = package.'value'()
 .endm
 
 .include "classes.pir"
@@ -34,6 +35,8 @@
 .include "combinator.pir"
 .include "environment.pir"
 .include "primitive.pir"
+.include "read.pir"
+.include "interpreter-test.pir"
 
 .sub main :main
         say "Diluting Continuations"
@@ -41,10 +44,10 @@
         sr_init = get_global "sr_init"
         set_hll_global ["CHIMACHO"], "*env*", sr_init
 toplevel:
-        .local pmc sexp, quote
+        .local pmc sexp, quote, env
         .nil
         .package
-        nil = get_hll_global ["CHIMACHO"], "NIL"
+        env = get_global "r.init"
         sexp = 'cons'(123, 456)
         sexp = 'cons'(sexp, nil)
         quote = package.'intern'("QUOTE")
@@ -58,6 +61,8 @@ toplevel:
         say m
         $P0 = m()
         say $P0
+
+        '%run-test'()
 .end
 
 .sub init :load :init
@@ -298,6 +303,8 @@ regular:
         if $I0 == 0 goto false
         .local pmc kind, type
         kind = 'compute-kind'(r, e)
+        $I0 = isnull kind
+        if $I0 goto false
         type = kind.'car'()
         if type != "predefined" goto false
         .local pmc desc

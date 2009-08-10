@@ -10,7 +10,11 @@
         setattribute package, 'external-symbols', $P0
         $P0 = new 'Hash'
         setattribute package, 'internal-symbols', $P0
-        set_hll_global ["CHIMACHO"], "*PACKAGE*", package
+
+        .local pmc _package_
+        _package_ = package.'intern'("*PACKAGE*")
+        _package_.'value!'(package)
+        set_hll_global ["CHIMACHO"], "*PACKAGE*", _package_
 .end
 
 .sub 'find-symbol' :method

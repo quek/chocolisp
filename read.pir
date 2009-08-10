@@ -46,12 +46,9 @@ loop_end:
         $I0 = buffer
         .return($I0)
 symbol:
-        .local pmc _package_
-        .local pmc package
-        _package_ = get_global "*PACKAGE*"
-        package = _package_.'symbol-value'()
+        .package
         buffer = upcase buffer
-        $P0 = package.'%intern'(buffer)
+        $P0 = package.'intern'(buffer)
         .return($P0)
 loop_string:
         '%read-char'(fh)
@@ -75,7 +72,7 @@ start:
         eq "(", $S0, read_list
         $P0 = '%read-atom'(fh)
         $P1 = '%read-list'(fh)
-        $P2 = '%cons'($P0, $P1)
+        $P2 = 'cons'($P0, $P1)
         .return($P2)
 comment:
         '%read-comment'(fh)
@@ -84,12 +81,11 @@ read_list:
         '%read-char'(fh)
         $P0 = '%read-list'(fh)
         $P1 = '%read-list'(fh)
-        $P2 = '%cons'($P0, $P1)
+        $P2 = 'cons'($P0, $P1)
         .return($P2)
 ret_nil:
         '%read-char'(fh)
-        .local pmc nil
-        nil = get_global "NIL"
+        .nil
         .return(nil)
 error:
         $P0 = new 'Exception'
