@@ -16,7 +16,10 @@
 
         set_global "r.init", nil
 
-        set_global "sr.init", nil
+        .local pmc sr_init
+        sr_init = nil
+        set_global "sr.init", sr_init
+        set_hll_global ["CHIMACHO"], "*env*", sr_init
 
         $P0 = new 'Hash'
         set_global "desc.init", $P0
@@ -98,13 +101,13 @@ end:
 .end
 
 .sub 'g.init-initialize!'
-        .param string name
+        .param pmc symbol
         .param pmc value
         .local pmc kind, r_init, type
         .local pmc sg_init
         sg_init = get_global "sg.init"
         r_init = get_global "r.init"
-        kind = 'compute-kind'(r_init, name)
+        kind = 'compute-kind'(r_init, symbol)
         $I0 = isnull kind
         if $I0 goto define
         type = kind.'car'()
@@ -113,15 +116,16 @@ redefine:
         .local pmc idx
         idx = kind.'cdr'()
         sg_init[idx] = value
-        .return(name)
+        .return(symbol)
 define:
-        'g.init-extend!'(name)
+        'g.init-extend!'(symbol)
         sg_init.'push'(value)
-        .return(name)
+        .return(symbol)
 error:
         $P0 = new "STATIC-WRONG"
         $P0 = "Wrong redefinition "
-        $P0 .= name
+        $S0 = symbol
+        $P0 .= $S0
         throw $P0
 .end
 

@@ -1,5 +1,5 @@
 .sub '%run-test'
-        'test_read'()
+        'test_load'()
         say "\nok"
 .end
 
@@ -20,36 +20,14 @@ end:
         print "."
 .end
 
-.sub 'test_read'
-        print "\ntest_read"
+.sub 'test_load'
+        print "\ntest_load"
         .nil
-        .local pmc venv
-        venv = get_global "r.init"
-
-        .local pmc fh
-        .local pmc sexp
-        fh = '%open'("a.lisp", "r")
-
-        sexp = '%read'(fh)
-        $P0 = 'meaning'(sexp, venv)
-        $P0 = $P0()
-        'assert'(30, $P0)
-
-##        sexp = '%read'(fh)
-##        $P0 = '%eval'(sexp, venv, fenv)
-##        'assert'("Hello", $P0)
-##
-##        sexp = '%read'(fh)
-##        $P0 = '%eval'(sexp, venv, fenv)
-##        'assert'("10", $P0)
-##
-##        sexp = '%read'(fh)
-##        $P0 = '%eval'(sexp, venv, fenv)
-##        'assert'("200", $P0)
-##
-##        ## Good bye!
-##        sexp = '%read'(fh)
-##        $P0 = '%eval'(sexp, venv, fenv)
-##
-        '%close'(fh)
+        .package
+        .local pmc r, e, m, load
+        e = 'cons'("a.lisp", nil)
+        load = package.'intern'("LOAD")
+        e = 'cons'(load, e)
+        m = 'meaning'(e, r)
+        m()
 .end

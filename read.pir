@@ -106,7 +106,7 @@ end:
 start:
         '%skip-whitespace'(fh)
         $S0 = peek fh
-        eq "", $S0, error
+        eq "", $S0, eof
         eq "(", $S0, read_list
         eq ";", $S0, comment
         $P0 = '%read-atom'(fh)
@@ -118,8 +118,8 @@ read_list:
 comment:
         '%read-comment'(fh)
         goto start
-error:
-        $P0 = new "Exception"
-        $P0 = "unexpected EOF!"
-        throw $P0
+eof:
+        .local pmc nul
+        null nul
+        .return(nul)
 .end

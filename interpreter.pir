@@ -39,29 +39,8 @@
 .include "interpreter-test.pir"
 
 .sub main :main
-        say "Diluting Continuations"
-        .local pmc sr_init
-        sr_init = get_global "sr_init"
-        set_hll_global ["CHIMACHO"], "*env*", sr_init
+        say "Interpreter"
 toplevel:
-        .local pmc sexp, quote, env
-        .nil
-        .package
-        env = get_global "r.init"
-        sexp = 'cons'(123, 456)
-        sexp = 'cons'(sexp, nil)
-        quote = package.'intern'("QUOTE")
-        sexp = 'cons'(quote, sexp)
-        sexp = 'cons'(sexp, nil)
-        $P0 = package.'intern'("CAR")
-        sexp = 'cons'($P0, sexp)
-        .local pmc m
-        say sexp
-        m = 'meaning'(sexp, nil)
-        say m
-        $P0 = m()
-        say $P0
-
         '%run-test'()
 .end
 
@@ -69,16 +48,6 @@ toplevel:
         say "init :load :init"
 
         .package
-
-        .local pmc nil
-        nil = package.'%intern'("NULL", "NIL")
-        nil.'value!'(nil)
-        set_hll_global ["CHIMACHO"], "NIL", nil
-
-        .local pmc t
-        t = package.'%intern'("NULL", "T")
-        t.'value!'(t)
-        set_hll_global ["CHIMACHO"], "T", t
 
         package.'%%intern'("QUOTE")
         package.'%%intern'("LAMBDA")
@@ -552,12 +521,11 @@ end:
         args = new 'FixedPMCArray'
         args = size
         i = 0
-        size -= 1
 loop:
+        if i == size goto end
         x = es.'car'()
         m = 'meaning'(x, r)
         args[i] = m
-        if i == size goto end
         i += 1
         es = es.'cdr'()
         goto loop
