@@ -71,7 +71,7 @@ toplevel:
         .local pmc next
         next = getattribute sr, 'next'
         i -= 1
-        'deep-fetch'(next, i, j)
+        .tailcall 'deep-fetch'(next, i, j)
 return:
         .local pmc argument, ret
         argument= getattribute sr, 'argument'

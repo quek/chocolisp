@@ -1,7 +1,8 @@
 #TARGET = choco.pir
 #TARGET = continuation-interpreter.pir
 #TARGET = fast-interpreter.pir
-TARGET = interpreter.pir
+#TARGET = interpreter.pir
+TARGET = byte-code-interpreter.pir
 
 all:
 	parrot $(TARGET)
@@ -11,3 +12,6 @@ trace:
 
 pasm:
 	parrot -o - $(TARGET)
+
+e:
+	parrot -E $(TARGET)
