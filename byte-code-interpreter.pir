@@ -128,6 +128,11 @@ byte code
         instraction_set[27] = SET_GLOBAL
 .end
 
+.sub 'meaning'
+        .param pmc e
+        .param pmc r
+.end
+
 .sub 'run'
         .local int instruction
         instruction = 'fetch-byte'()
@@ -173,6 +178,33 @@ byte code
         val = getattribute x, 'cdr'
         .return(val)
 .end
+
+.sub 'atom'
+        .param pmc x
+        .local pmc t, nil
+        .package
+        $I0 = isa x, "CONS"
+        if $I0 goto false
+        t = package.'intern'("T")
+        .return(t)
+false:
+        nil = package.'intern'("NIL")
+        .return(nil)
+.end
+
+.sub 'eq'
+        .param pmc x
+        .param pmc y
+        .local pmc t, nil
+        .package
+        eq_addr x, y, true
+        nil = package.'intern'("NIL")
+        .return(nil)
+true:
+        t = package.'intern'("T")
+        .return(t)
+.end
+
 
 .sub 'deep-fetch'
         .param pmc env
