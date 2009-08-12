@@ -29,6 +29,12 @@ byte code
 
 .sub '' :anon :load :init
         say "initializing..."
+
+        $P0 = new 'ResizablePMCArray'
+        set_global "sg.current", $P0
+        $P0 = new 'Hash'
+        set_global "desc.init", $P0
+
         $P0 = newclass "T"
 
         $P0 = subclass "T", "ENVIRONMENT"
@@ -65,24 +71,28 @@ byte code
         .local pmc nil
         nil = new "NULL"
         nil = "NIL"
-        setattribute nil, 'value', nil
         set_global "NIL", nil
+        'definitial'(nil, nil)
 
         .local pmc t
         t = new "SYMBOL"
         t = "T"
-        setattribute t, 'value', t
         set_global "T", t
+        'definitial'(nil, nil)
 
         .local pmc package
         package = new "PACKAGE"
         package = "CHIMACHO"
+        set_global "package", package
+
+        'init-prim'("+",      '+',      2)
 
         ## instraction set
         .local pmc instraction_set
         instraction_set = new 'ResizablePMCArray'
         #instraction_set = 255
 
+        ## サイズがわかんなきゃだめだ。
         .const 'Sub' SHALLOW_ARGUMENT_REF0 = 'iSHALLOW-ARGUMENT-REF0'
         instraction_set[1] = SHALLOW_ARGUMENT_REF0
 
@@ -152,12 +162,14 @@ byte code
 
 .sub 'main' :main
         .nil
-        $P0 = new 'Hash'
-        set_global "g.current", $P0
-        $P0 = new 'Hash'
-        set_global "g.init", $P0
+        .package
+        .local pmc plus
+        plus = package.'intern'("+")
 
-        $P0 = 'meaning'(nil, nil)
+        $P0 = 'cons'(2, nil)
+        $P0 = 'cons'(1, $P0)
+        $P0 = 'cons'(plus, $P0)
+        $P0 = 'meaning'($P0, nil)
         say $P0
 .end
 
@@ -236,7 +248,6 @@ ldefun:
         type = getattribute kind, 'car'
         if type ==  "local" goto local
         if type == "global" goto global
-        if type == "predefined" goto predefined
 local:
         .local pmc i, j
         j = getattribute kind, 'cdr'
@@ -248,16 +259,88 @@ deep:
 shallow:
         .tailcall 'SHALLOW-ARGUMENT-REF'(j)
 global:
-        .local pmc symbol
-        symbol = getattribute kind, 'cdr'
-        .tailcall 'CHECKED-GLOBAL-REF'(symbol)
-predefined:
-        .local pmc symbol
-        symbol = getattribute kind, 'cdr'
-        .tailcall 'PREDEFINED'(symbol)
+        .local pmc i
+        i = getattribute kind, 'cdr'
+        .tailcall 'CHECKED-GLOBAL-REF'(i)
 error:
         $S0 = n
         $S0 = "Unbond variable " . $S0
+        die $S0
+.end
+
+.sub 'meaning-application'
+        .param pmc e
+        .param pmc es
+        .param pmc r
+        $I0 = 'primitive?'(e, es, r)
+        if $I0 goto primitive
+        $I0 = isa e, "CONS"
+        if $I0 goto cons
+        goto regular
+cons:
+        $P0 = e.'car'()
+        $I0 = isa $P0, "LAMBDA"
+        if $I0 goto lambda
+        goto regular
+primitive:
+        .tailcall 'meaning-primitive-application'(e, es, r)
+lambda:
+        .tailcall 'meaning-closed-application'(e, es, r)
+regular:
+        .tailcall 'meaning-regular-application'(e, es, r)
+.end
+
+.sub 'meaning-primitive-application'
+        .param pmc e
+        .param pmc es
+        .param pmc r
+        .local pmc desc, address, args, m, x
+        .local int size, i
+        desc = 'get-description'(e)
+        address = getattribute desc, 'car'
+        size = 'length'(es)
+        args = new 'FixedPMCArray'
+        args = size
+        i = 0
+loop:
+        if i == size goto end
+        x = getattribute es, 'car'
+        m = 'meaning'(x, r)
+        args[i] = m
+        i += 1
+        es = getattribute es, 'cdr'
+        goto loop
+end:
+        .tailcall 'CALL'(address, args)
+.end
+
+.sub 'primitive?'
+        .param pmc e
+        .param pmc es
+        .param pmc r
+        $I0 = isa e, "SYMBOL"
+        if $I0 == 0 goto false
+        .local pmc kind, type
+        kind = 'compute-kind'(r, e)
+        $I0 = isnull kind
+        if $I0 goto false
+        type = getattribute kind, 'car'
+        if type != "global" goto false
+        .local pmc desc
+        desc = 'get-description'(e)
+        $I0 = isnull desc
+        if $I0 goto false
+        .local pmc es_len, arity
+        es_len = 'length'(es)
+        arity = getattribute desc, 'cdr'
+        if es_len != arity goto error
+        .return(1)
+false:
+        .return(0)
+error:
+        $S0 = "Incorrect arity for primitive "
+        $S1 = e
+        $S0 .= $S1
         die $S0
 .end
 
@@ -332,6 +415,71 @@ true:
         .return(t)
 .end
 
+.sub '+'
+        .param pmc x
+        .param pmc y
+        .local pmc val
+        val = x + y
+        .return(val)
+.end
+
+.sub '-'
+        .param pmc x
+        .param pmc y
+        .local pmc val
+        val = x - y
+        .return(val)
+.end
+
+
+.sub 'length'
+        .param pmc x
+        .local int len
+        .nil
+        len = 0
+loop:
+        eq_addr x, nil, end
+        len += 1
+        x = getattribute x, 'cdr'
+        goto loop
+end:
+        .return(len)
+.end
+
+.sub 'append'
+        .param pmc x
+        .param pmc y
+        .nil
+        eq_addr x, nil, end
+        .local pmc a, b
+        a = getattribute x, 'car'
+        b = getattribute x, 'cdr'
+        b = 'append'(b, y)
+        y = 'cons'(a, b)
+end:
+        .return(y)
+.end
+
+.sub 'listify!'
+        .param pmc vs
+        .param int arity
+        .local pmc argument, result
+        .local int idx
+        .nil
+        result = nil
+        argument = getattribute vs, 'argument'
+        idx = argument
+        idx -= 1
+loop:
+        if idx == arity goto end
+        idx -= 1
+        $P0 = argument[idx]
+        result = 'cons'($P0, result)
+        goto loop
+end:
+        argument[arity] = result
+.end
+
 
 .sub 'deep-fetch'
         .param pmc env
@@ -371,11 +519,13 @@ this:
         .local pmc ret
         ret = 'local-variable?'(r, 0, n)
         $I0 = isnull ret
-        if $I0 goto not_local
+        if $I0 goto global
         .return(ret)
-not_local:
-        $P0 = 'cons'("global", n)
-        .return($P0)
+global:
+        .local pmc idx
+        idx = getattribute n, 'value'
+        ret = 'cons'("global", idx)
+        .return(ret)
 .end
 
 .sub 'local-variable?'
@@ -415,6 +565,113 @@ true:
         .return($P0)
 .end
 
+.sub 'global-variable?'
+        .param pmc g
+        .param pmc n
+        $P0 = g[n]
+        .return($P0)
+.end
+
+.sub 'definitial'
+        .param pmc symbol
+        .param pmc value
+        'g.init-initialize!'(symbol, value)
+.end
+
+.sub 'g.init-initialize!'
+        .param pmc symbol
+        .param pmc value
+        .local pmc sg_current
+        .local pmc idx
+        sg_current = get_global "sg.current"
+        push sg_current, value
+        $I0 = elements sg_current
+        $P0 = new 'Integer'
+        $P0 = $I0
+        setattribute symbol, 'value', $P0
+.end
+
+.sub 'defprimitive'
+        .param pmc symbol
+        .param pmc value
+        .param int arity
+        .local pmc closure
+        closure = 'behavior'(symbol, value, arity)
+        .tailcall 'definitial'(symbol, closure)
+.end
+
+.sub 'behavior' :outer('defprimitive')
+        .param pmc symbol
+        .param pmc value
+        .param pmc arity
+        .lex 'symbol', symbol
+        .lex 'value', value
+        .local pmc arity_plus1
+        arity_plus1 = arity + 1
+        .lex 'arity_plus1', arity_plus1
+        .local pmc behavior, closure, sr_init
+        .const 'Sub' k = '%behavior'
+        behavior = newclosure k
+        closure = new "CLOSURE"
+        setattribute closure, 'code', behavior
+        sr_init = get_global "sr.init"
+        setattribute closure, 'closed-environment', sr_init
+        .local pmc description
+        description = 'cons'(value, arity)
+        'description-extend!'(symbol, description)
+        .return(closure)
+.end
+
+.sub '%behavior' :outer('behavior')
+        .param pmc vs
+        .param pmc sr
+        .local pmc arity_plus1, argument, value
+        .local int i_arity_plus1, argument_len
+        arity_plus1 = find_lex 'arity_plus1'
+        i_arity_plus1 = arity_plus1
+        argument = getattribute vs, 'argument'
+        argument_len = argument
+        if arity_plus1 != argument_len goto error
+        value = find_lex 'value'
+        .tailcall value(argument :flat)
+error:
+        $P0 = new 'Exception'
+        $P0 = "Incorrect arity "
+        .local pmc symbol
+        symbol = find_lex 'symbol'
+        $S0 = symbol
+        $P0 .= $S0
+        throw $P0
+.end
+
+.sub 'init-prim'
+        .param string name
+        .param string sub_name
+        .param int arity
+        .local pmc symbol, _sub
+        .package
+        symbol = package.'intern'(name)
+        _sub = get_global sub_name
+        'defprimitive'(symbol, _sub, arity)
+.end
+
+.sub 'description-extend!'
+        .param pmc symbol
+        .param pmc description
+        .local pmc desc_init, x
+        desc_init = get_global "desc.init"
+        desc_init[symbol] = description
+        .return(symbol)
+.end
+
+.sub 'get-description'
+        .param string name
+        .local pmc desc_init, description
+        desc_init = get_global "desc.init"
+        description = desc_init[name]
+        .return(description)
+.end
+
 #### Meanings
 .sub 'SHALLOW-ARGUMENT-REF'
         .param int j
@@ -447,13 +704,13 @@ n:
 .end
 
 .sub 'GLOBAL-REF'
-        .param pmc symbol
-        .tailcall 'list'(7, symbol)
+        .param int i
+        .tailcall 'list'(7, i)
 .end
 
 .sub 'CHECKED-GLOBAL-REF'
-        .param pmc symbol
-        .tailcall 'list'(8, symbol)
+        .param int i
+        .tailcall 'list'(8, i)
 .end
 
 .sub 'SET-GLOBAL'
@@ -464,7 +721,7 @@ n:
 .sub 'PREDEFINED'
         .param int i
         if i > 8 goto n
-        ## 0 t, 1 nil, 2 cons, 3 car, 4 cdr, 5 atom, 6 eq
+        ## 0 t, 1 nil, 2 cons, 3 car, 4 cdr, 5 atom, 6 eq, 7 +, 8 -
         i += 10
         .tailcall 'list'(i)
 n:
@@ -585,17 +842,21 @@ n:
 .end
 
 .sub 'iCHECKED-GLOBAL-REF'
-        .local pmc symbol
-        .local pmc val
-        symbol = 'fetch-byte'()
-        val = getattribute symbol, 'value'
+        .local int i
+        .local pmc val, sg_current
+        i = 'fetch-byte'()
+        sg_current = get_global "sg.current"
+        val = sg_current[i]
         $I0 = isnull val
-        unless $I0 goto next
-        $S0 = symbol
-        $S0 = "Uninitialized global variable " . $S0
-        die $S0
-next:
+        unless $I0 goto error
         set_global "*val*", val
+        goto end
+error:
+        $S0 = "Uninitialized global variable "
+        $S1 = i
+        $S0 .= $S1
+        die $S0
+end:
 .end
 
 .sub 'iSET-GLOBAL'
@@ -607,17 +868,13 @@ next:
 .end
 
 .sub 'iPREDEFINED0'
-        .package
-        .local pmc val
-        val = package.'intern'("T")
-        set_global "*val*", val
+        .t
+        set_global "*val*", t
 .end
 
 .sub 'iPREDEFINED1'
-        .package
-        .local pmc val
-        val = package.'intern'("NIL")
-        set_global "*val*", val
+        .nil
+        set_global "*val*", nil
 .end
 
 .sub 'iPREDEFINED2'
@@ -645,6 +902,16 @@ next:
         set_global "*val*", val
 .end
 
+.sub 'iPREDEFINED7'
+        .const 'Sub' val = '+'
+        set_global "*val*", val
+.end
+
+.sub 'iPREDEFINED8'
+        .const 'Sub' val = '-'
+        set_global "*val*", val
+.end
+
 
 .sub 'iPREDEFINED'
         .local pmc i
@@ -667,6 +934,38 @@ next:
 .sub set_string_native :vtable
         .param pmc str
         setattribute self, 'name', str
+.end
+
+.sub 'find-symbol' :method
+        .param string name
+        .local pmc external
+        external = getattribute self, 'external-symbols'
+        $P0 = external[name]
+        $I0 = isnull $P0
+        if $I0 goto l1
+        .return($P0)
+l1:
+        .local pmc internal
+        internal = getattribute self, 'internal-symbols'
+        $P0 = internal[name]
+        .return($P0)
+.end
+
+.sub 'intern' :method
+        .param string name
+        .local pmc symbol
+        symbol = self.'find-symbol'(name)
+        $I0 = isnull symbol
+        if $I0 goto intern
+        .return(symbol)
+intern:
+        symbol = new "SYMBOL"
+        symbol = name
+        setattribute symbol, 'package', self
+        .local pmc external
+        external = getattribute self, 'external-symbols'
+        external[name] = symbol
+        .return(symbol)
 .end
 
 .namespace [ "SYMBOL" ]
