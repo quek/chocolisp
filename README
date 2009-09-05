@@ -1,3 +1,6 @@
 ちょこっと Lisp でも作ってみようか。
 
 『Lisp in Small Pieces』
+
+sub のメモリ
+再定義でどうなるか。

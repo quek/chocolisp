@@ -17,13 +17,27 @@
         .nil
         say t
         say nil
+
+        .local pmc compiler, code, fasl1, fasl2
+        compiler = compreg "PIR"
+XXX:
+        code = 'CONSTANT'(777)
+        fasl1 = compiler(code)
+        code = 'CONSTANT'(888)
+        fasl2 = compiler(code)
+        $P0 = fasl1()
+        say $P0
+        $P0 = fasl2()
+        say $P0
+        ##goto XXX
 .end
 
 .sub '' :anon :load :init
         say "Chocolisp..."
 
-        $P0 = new 'Hash'
-        set_global "*all-packages*", $P0
+        .local pmc all_packages
+        all_packages = new 'Hash'
+        set_global "*all-packages*", all_packages
 
         $P0 = newclass "T"
 
@@ -51,6 +65,7 @@
         .local pmc common_lisp_package
         common_lisp_package = new "PACKAGE"
         common_lisp_package = "COMMON-LISP"
+        all_packages["COMMON-LISP"] = common_lisp_package
         set_global "COMMON-LISP", common_lisp_package
 
         .local pmc nil
@@ -63,6 +78,91 @@
         setattribute t, 'value', t
         set_global "T", t
 .end
+
+
+.sub 'meaning'
+        .param pmc e
+        .param pmc r
+        .param pmc f
+        .param pmc d
+        .param pmc tail
+
+        $I0 = isa e, "CONS"
+        if $I0 goto cons
+atom:
+        $I0 = isa e, "SYMBOL"
+        if $I0 goto symbol
+literal:
+        .tailcall 'meaning-quote'(e, r, f, d, tail)
+symbol:
+        .tailcall 'meaning-reference'(e, r, f, tail)
+cons:
+        .local pmc car, cdr
+        car = getattribute e, "car"
+        cdr = getattribute e, "cdr"
+        .tailcall 'meaning-application'(car, cdr, r, f, d, tail)
+.end
+
+.sub 'meaning-quote'
+        .param pmc v
+        .param pmc r
+        .param pmc f
+        .param pmc d
+        .param pmc tail
+        'CONSTANT'(v)
+.end
+
+
+.sub 'CONSTANT'
+        .param pmc v
+        .local pmc code
+        code = new 'CodeString'
+        code.'emit'(<<"        HERE", 'v'=>v)
+        .sub '__constant__'
+                .return(%v)
+        .end
+        HERE
+        .return(code)
+.end
+
+## Objectification
+.sub 'initialize classes for Objectification' :anon :load :init
+        $P0 = newclass "Object"
+
+        $P0 = subclass "Object", "Reference"
+        addattribute $P0, 'variable'
+
+        $P0 = subclass "Reference", "LocalReference"
+
+        $P0 = subclass "Reference", "GlobalReference"
+
+        $P0 = subclass "Reference", "PredefinedReference"
+
+        $P0 = subclass "Program", "GlobalAssignment"
+        addattribute $P0, 'variable'
+        addattribute $P0, 'form'
+
+        $P0 = subclass "Program", "LocalAssignment"
+        addattribute $P0, 'reference'
+        addattribute $P0, 'form'
+
+        $P0 = subclass "Program", "Function"
+        addattribute $P0, 'variables'
+        addattribute $P0, 'body'
+
+        $P0 = subclass "Program", "Alternative"
+        addattribute $P0, 'condition'
+        addattribute $P0, 'consequent'
+        addattribute $P0, 'alternate'
+
+        $P0 = subclass "Program", "Sequence"
+        addattribute $P0, 'first'
+        addattribute $P0, 'last'
+
+        $P0 = subclass "Program", "Constant"
+        addattribute $P0, 'value'
+.end
+
 
 .namespace [ "PACKAGE" ]
 
