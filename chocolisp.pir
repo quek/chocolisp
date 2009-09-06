@@ -217,6 +217,43 @@ dynamic:
         .return (1)
 .end
 
+.sub 'meaning-assignment'
+        .param pmc lhs
+        .param pmc rhs
+        .param pmc r
+        .param pmc f
+        .param pmc d
+        .param pmc tail
+
+        .local pmc reference, form
+        reference = 'meaning'(lhs, r, f, d, tail)
+        form = 'meaning'(rhs, r, f, d, tail)
+        $I0 = isa reference, "LocalReference"
+        if $I0 goto local
+        $I0 = isa reference, "GlobalReference"
+        if $I0 goto global
+        $I0 = isa reference, "DynamicReference"
+        if $I0 goto dynamic
+        die "meaning-assignment"
+local:
+        $P0 = new "LocalAssignment"
+        setattribute $P0, 'reference', reference
+        setattribute $P0, 'form', form
+        .return($P0)
+global:
+        $P0 = new "GlobalAssignment"
+        .local pmc variable
+        variable = getattribute reference, 'variable'
+        setattribute $P0, 'variable', variable
+        setattribute $P0, 'form', form
+        .return($P0)
+dynamic:
+        $P0 = new "DynamicAssignment"
+        setattribute $P0, 'reference', reference
+        setattribute $P0, 'form', form
+        .return($P0)
+.end
+
 .sub 'meaning-application'
         .param pmc function
         .param pmc arguments
@@ -224,7 +261,32 @@ dynamic:
         .param pmc f
         .param pmc d
         .param pmc tail
-        
+
+        .local pmc parrotArguments
+        parrotArguments = 'arguments lisp -> parrot'(arguments, r, f, d, tail)
+.end
+
+.sub 'arguments lisp -> parrot'
+        .param pmc arguments
+        .param pmc r
+        .param pmc f
+        .param pmc d
+        .param pmc tail
+        .nil
+        eq_addr arguments, nil, end
+cons:
+        .local pmc car, cdr, first, others
+        car = getattribute arguments, 'car'
+        first = 'meaning'(car, r, d, f, tail)
+        $P0 = new "Arguments"
+        setattribute $P0, 'first', first
+        cdr = getattribute arguments, 'cdr'
+        others = 'arguments lisp -> parrot'
+        setattribute $P0, 'others', others
+        .return($P0)
+end:
+        $P0 = new "NoArgument"
+        .return($P0)
 .end
 
 
@@ -264,11 +326,15 @@ dynamic:
 
         $P0 = subclass "Reference", "DynamicReference"
 
+        $P0 = subclass "Program", "LocalAssignment"
+        addattribute $P0, 'reference'
+        addattribute $P0, 'form'
+
         $P0 = subclass "Program", "GlobalAssignment"
         addattribute $P0, 'variable'
         addattribute $P0, 'form'
 
-        $P0 = subclass "Program", "LocalAssignment"
+        $P0 = subclass "Program", "DynamicAssignment"
         addattribute $P0, 'reference'
         addattribute $P0, 'form'
 
