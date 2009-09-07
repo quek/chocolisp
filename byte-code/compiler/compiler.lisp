@@ -8,6 +8,9 @@
 
 トップレベルでいろいろ問題ありそう。
 全体を .sub .end で囲んで、中の defun 等を外出しにすればいいかも。
+
+(let ((x (defun f () 'foo))))
+とかの場合は .const 'Sub' x = 'f' すればいいかな。
 |#
 (defun compile-toplevel (form)
   (if (atom form)
