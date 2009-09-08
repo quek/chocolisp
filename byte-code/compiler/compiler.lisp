@@ -53,11 +53,11 @@
   ((reference)
    (form)))
 
-(defclass* regular-function (program)
+(defclass* lambda-form (program)
   ((vars)
    (body)))
 
-(defclass* alternative (program)
+(defclass* if-form (program)
   ((test)
    (then)
    (else)))
@@ -79,16 +79,16 @@
   ((var)
    (arguments)))
 
-(defclass* fixlet (program)
+(defclass* let-form (program)
   ((vars)
-   (arguments)
+   (values)
    (body)))
 
 (defclass* arguments (program)
   ((first)
    (others)))
 
-(defclass* noargument (program) ())
+(defclass* no-argument (program) ())
 
 (defclass* var (object)
   ((name)))
@@ -102,19 +102,104 @@
   ((mutable?)
    (dotted?)))
 
-(defun objectify (form)
+(defun objectify (form r d f)
   (if (atom form)
       (if (symbolp form)
-          (objectify-reference form)
+          (objectify-reference form r d f)
           (objectify-quotation form))
       (case (car form)
+        (if
+            (objectify-if (cadr form) (caddr form) (cadddr form)
+                          r d f))
+        (let
+            (objectify-let (cadr form) (caddr form) r d f))
+        (lambda
+            (objectify-lambda (cadr form) (caddr form) r d f))
+        (progn
+          (objectify-progn (cdr form) r d f))
+        (flet
+            )
+        (labels
+            )
         (defun
-            (objectify-defun (cadr form) (caddr form) (cdddr form)))
+            (objectify-defun (cadr form) (caddr form) (cdddr form)
+                             r d f))
         (t ()))))
 
-(defun objectify-defun (name lambda-list body)
+(defun objectify-quotation (value)
+  (make-instance 'constant :value value))
+
+(defun objectify-reference (var r d f)
+  (case (var-kind var r d f)
+    (:local
+       (make-instance 'local-reference :var var))
+    (:global
+       (make-instance 'global-reference :var var))
+    (:dynamic
+       (make-instance 'dynamic-reference :var var))))
+
+(defun var-kind (var r d f)
+  (declare (ignore d f))
+  (let ((x (assoc var r)))
+    (if x
+        (cdr x)
+        :global)))
+
+(defun objectify-if (test then else r d f)
+  (make-instance 'if-form
+                 :test (objectify test r d f)
+                 :then (objectify then r d f)
+                 :else (objectify else r d f)))
+
+(defun objectify-let (bindings body r d f)
+  (loop with new-r = r
+        for bind in bindings
+        if (atom bind)
+          collect bind into vars
+          and collect nil into values
+          and do (setq new-r (cons (cons bind :local) new-r))
+        else
+          collect (car bind) into vars
+          and collect (objectify (cadr bind) r d f) into values
+          and do (setq new-r (cons (cons (car bind) :local) new-r))
+        end
+        finally (return (make-instance 'let-form
+                                       :vars vars
+                                       :values values
+                                       :body (objectify body new-r d f)))))
+
+(defun objectify-lambda (vars body r d f)
+  (make-instance 'lambda-form
+                 :vars vars
+                 :body (objectify body
+                                  (reduce (lambda (x y) (cons y x))
+                                          vars :initial-value r)
+                                  d f)))
+
+(defun objectify-defun (name lambda-list body r d f)
   (make-instance 'defun-form :name name :lambda-list lambda-list
-                 :body (objectify body)))
+                 :body (objectify-progn body r d f)))
+
+(defun objectify-progn (body r d f)
+  (if (null body)
+      (make-instance 'constant :value nil)
+      (if (null (cdr body))
+          (objectify (car body) r d f)
+          (make-instance 'progn-form
+                         :first (objectify (car body) r d f)
+                         :last (objectify-progn (cdr body) r d f)))))
+
+(defgeneric pir (program))
+
+(defvar *var-counter*)
+(defvar *top-level*)
+
+(defmethod pir ((self defun-form))
+  (let ((*var-counter* 0)
+        (*top-level* nil))
+    (format t ".sub '~a'~%" (name-of self))
+    (compile-form (body-of self))
+    (format t ".end~%")))
 
 (defun compile-toplevel (form)
   (if (atom form)
