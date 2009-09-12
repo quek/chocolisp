@@ -221,7 +221,7 @@
   (format nil "p_~a" lisp-var))
 
 (defun prt (format &rest args)
-  (apply #'format t (concatenate 'string "~4t" format) args)
+  (apply #'format t (concatenate 'string "~8t" format) args)
   (terpri))
 
 (defun prt-top (format &rest args)
@@ -259,8 +259,13 @@
     value))
 
 (defmethod pir ((self constant))
-  (let ((var (next-var)))
-    (prt "~a = ~a" var (value-of self))
+  (let ((var (next-var))
+        (value (value-of self)))
+    (prt "~a = new '~a'" var
+         (typecase value
+           (integer "Integer")
+           (string "String")))
+    (prt "~a = ~a" var value)
     var))
 
 (defmethod pir ((self if-form))
@@ -277,16 +282,33 @@
     (prt-label end-label)
     result))
 
+(defmethod pir ((self progn-form))
+  (pir (first-of self))
+  (pir (last-of self)))
+
 (defmethod pir ((self regular-application))
   (let ((return-value (next-var))
         (fun (symbol-name (function-of self)))
         (args (next-var)))
-    (prt "~a = new 'Array'" args)
+    (prt "~a = new 'ResizablePMCArray'" args)
     (mapc (lambda (arg)
             (prt "push ~a, ~a" args (pir arg)))
           (arguments-of self))
-    (prt "~a = '~a'(~a :flat)'" return-value fun args)
+    (prt "~a = '~a'(~a :flat)" return-value fun args)
     return-value))
+
+(defmethod pir ((self let-form))
+  "TODO これだとスコープが閉じてないからだめだ"
+  (let ((vars (mapcar (lambda (var)
+                        (let ((parrot-var (parrot-var var)))
+                          (prt ".local pmc ~a" parrot-var)
+                          parrot-var))
+                      (vars-of self))))
+    (mapcar (lambda (var value)
+              (let ((val (pir value)))
+                (prt "~a = ~a" var val)))
+            vars (values-of self))
+    (pir (body-of self))))
 
 (progn
   (pir (objectify '(defun foo1 () 1) nil nil nil))
@@ -294,6 +316,7 @@
   (pir (objectify '(defun foo3 (a) a) nil nil nil))
   (pir (objectify '(defun foo4 (a) (foo1 a 1 "abc")) nil nil nil))
   (pir (objectify '(defun foo5 (a) (if a 1 2)) nil nil nil))
+  (pir (objectify '(defun foo7 (x) (let ((x 1)) (foo x)) (foo x)) nil nil nil))
   )
 
 #|
