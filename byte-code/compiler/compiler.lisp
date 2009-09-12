@@ -12,8 +12,12 @@
 (let ((x (defun f () 'foo))))
 とかの場合は .const 'Sub' x = 'f' すればいいかな。
 |#
+(declaim (optimize (debug 3) (safety 3) (speed 0) (space 0)
+                   (compilation-speed 0)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :defclass-star))
+
 
 (defpackage :chocolisp.compiler
     (:use :common-lisp :defclass-star))
@@ -40,6 +44,19 @@
   ((name)
    (lambda-list)
    (body)))
+
+(defclass* flat-function (defun-form)
+  ((lambdas nil)))
+
+(defclass* closure (program)
+  ((name)
+   (outer)
+   (lambda-list)
+   (body)))
+
+(defclass* extracted-let (program)
+  ((name)
+   (values)))
 
 (defclass* local-assignment (program)
   ((reference)
@@ -102,6 +119,15 @@
   ((mutable?)
    (dotted?)))
 
+(defun walk-object (object function &rest args)
+  (mapc (lambda (slot-definition)
+          (let* ((slot-name (sb-mop:slot-definition-name slot-definition))
+                 (slot-value (slot-value object slot-name)))
+            (when (typep slot-value 'program)
+              (let ((new-value (apply function slot-value args)))
+                (setf (slot-value object slot-name) new-value)))))
+        (sb-mop:class-slots (class-of object)))
+  object)
 
 (defun extend-r (r vars &optional (kind :local))
   (reduce (lambda (r var)
@@ -199,7 +225,38 @@
                    :function fun
                    :arguments objected-args)))
 
+
+(defgeneric extract-let (object flat-function outer))
+
+(defmethod extract-let ((self program) flat-function outer)
+  (walk-object self #'extract-let flat-function outer))
+
+(defmethod extract-let ((self defun-form) flat-function outer)
+  (let* ((flat-function (make-instance 'flat-function
+                                       :name (name-of self)
+                                       :lambda-list (lambda-list-of self)))
+         (extracted-body (extract-let (body-of self) flat-function
+                                      flat-function)))
+    (setf (body-of flat-function) extracted-body)
+    flat-function))
+
+(defmethod extract-let ((self let-form) flat-function outer)
+  (let* ((closure-name (gensym "sub"))
+         (closure (make-instance 'closure
+                                 :name closure-name
+                                 :outer (name-of outer)
+                                 :lambda-list (vars-of self)
+                                 :body nil)))
+    (push closure (lambdas-of flat-function))
+    (setf (body-of closure) (extract-let (body-of self) flat-function
+                                         closure))
+    (make-instance 'extracted-let
+                   :name closure-name
+                   :values (values-of self))))
+
 (defgeneric pir (program))
+
+(defvar *pir-stream* *standard-output*)
 
 (defvar *var-counter*)
 (defvar *label-counter*)
@@ -222,15 +279,15 @@
   (format nil "p_~a" lisp-var))
 
 (defun prt (format &rest args)
-  (apply #'format t (concatenate 'string "~8t" format) args)
-  (terpri))
+  (apply #'format *pir-stream* (concatenate 'string "~8t" format) args)
+  (terpri *pir-stream*))
 
 (defun prt-top (format &rest args)
-  (apply #'format t format args)
-  (terpri))
+  (apply #'format *pir-stream* format args)
+  (terpri *pir-stream*))
 
 (defun prt-label (label)
-  (format t "~a:~%" label))
+  (format *pir-stream* "~a:~%" label))
 
 (defmethod pir ((self defun-form))
   (let ((*var-counter* 0)
@@ -310,22 +367,36 @@
             (prt "push ~a, ~a" args (pir arg)))
           (values-of self))
     (prt "~a = ~a(~a :flat)" result sub args)
-    "TODO sub-name を defun する必要がある。
-          あらかじめ変換しておくべきか？"
     result))
 
-;;  "TODO これだとスコープが閉じてないからだめだ"
-;;  (let ((vars (mapcar (lambda (var)
-;;                        (let ((parrot-var (parrot-var var)))
-;;                          (prt ".local pmc ~a" parrot-var)
-;;                          parrot-var))
-;;                      (vars-of self))))
-;;    (mapcar (lambda (var value)
-;;              (let ((val (pir value)))
-;;                (prt "~a = ~a" var val)))
-;;            vars (values-of self))
-;;    (pir (body-of self))))
-;;
+(defmethod pir :after ((self flat-function))
+  (mapc #'pir (lambdas-of self)))
+
+(defmethod pir ((self extracted-let))
+  (let ((var (next-var))
+        (args (next-var))
+        (result (next-var)))
+    (prt ".const 'Sub' ~a = '~s'" var (name-of self))
+    (prt "~a = new 'ResizablePMCArray'" args)
+    (mapc (lambda (arg)
+            (prt "push ~a, ~a" args (pir arg)))
+          (values-of self))
+    (prt "~a = ~a(~a :flat)" result var args)
+    result))
+
+(defmethod pir ((self closure))
+  (let ((*var-counter* 0)
+        (*label-counter* 0)
+        (*sub-stack* (cons (name-of self) *sub-stack*)))
+    (prt-top ".sub '~s' :outer('~s')" (name-of self) (outer-of self))
+    (mapc (lambda (arg)
+            (prt ".param pmc ~a" (parrot-var arg)))
+          (lambda-list-of self))
+    (let ((ret (pir (body-of self))))
+      (prt ".return(~a)" ret))
+    (prt-top ".end")))
+
+#+nil
 (progn
   (pir (objectify '(defun foo1 () 1) nil nil nil))
   (pir (objectify '(defun foo2 () a) nil nil nil))
@@ -335,38 +406,27 @@
   (pir (objectify '(defun foo7 (x) (let ((x 1)) (foo x)) (foo x)) nil nil nil))
   )
 
-#|
-(defun compile-toplevel (form)
-  (if (atom form)
-      (progn
-        "トップレベルでいろいろ問題ありそう。
-全体を .sub .end で囲んで、中の defun 等を外出しにすればいいかも。")
-      (case (car form)
-        (defun
-            (compile-defun (cadr form) (cddr form)))
-        (t
-           "トップレベルでいろいろ問題ありそう。
-全体を .sub .end で囲んで、中の defun 等を外出しにすればいいかも。"
-           ()))))
+(defun compile-and-run (form &optional (file "/tmp/a.pir"))
+  (format t "~&=====================================~%")
+  (with-open-file (out file :direction :output
+                       :if-exists :supersede)
+    (let ((*pir-stream* (make-broadcast-stream out *standard-output*)))
+      (format *pir-stream* "
+.sub main
+        'FOO'(100)
+.end
+.sub 'SAY'
+        .param pmc x
+        say x
+.end
+")
+      (pir (extract-let (objectify form nil nil nil) nil nil))))
+  (format t "~&=====================================~%")
+  (sb-ext:run-program "parrot" (list file) :search t
+                      :wait t
+                      :output *standard-output*))
 
-(defun compile-form (form)
-  (if (atom form)
-      (if (symbolp form)
-          (compile-reference form)
-          (compile-quote form))
-      (case (car form)
-        (defun
-            (compile-defun (cadr form) (cddr form)))
-        (t))))
-
-(defun compile-reference (var)
-  var)
-
-(defun compile-quote (value)
-  value)
-
-(defun compile-defun (name body)
-  (format t ".sub '~a'~%" name)
-  (compile-form body)
-  (format t ".end~%"))
-|#
+(compile-and-run '(defun foo (x)
+                   (let ((x 7))
+                     (say x))
+                   (say x)))
