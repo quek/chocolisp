@@ -203,6 +203,7 @@
 
 (defvar *var-counter*)
 (defvar *label-counter*)
+(defvar *sub-stack* nil)
 
 (let (var)
   (defun next-var (&optional (kind "P"))
@@ -233,8 +234,9 @@
 
 (defmethod pir ((self defun-form))
   (let ((*var-counter* 0)
-        (*label-counter* 0))
-    (prt-top ".sub '~a'" (name-of self))
+        (*label-counter* 0)
+        (*sub-stack* (cons (name-of self) *sub-stack*)))
+    (prt-top ".sub '~s'" (name-of self))
     (mapc (lambda (arg)
             (prt ".param pmc ~a" (parrot-var arg)))
           (lambda-list-of self))
@@ -261,7 +263,7 @@
 (defmethod pir ((self constant))
   (let ((var (next-var))
         (value (value-of self)))
-    (prt "~a = new '~a'" var
+    (prt "~a = new ~s" var
          (typecase value
            (integer "Integer")
            (string "String")))
@@ -294,22 +296,36 @@
     (mapc (lambda (arg)
             (prt "push ~a, ~a" args (pir arg)))
           (arguments-of self))
-    (prt "~a = '~a'(~a :flat)" return-value fun args)
+    (prt "~a = '~s'(~a :flat)" return-value fun args)
     return-value))
 
 (defmethod pir ((self let-form))
-  "TODO これだとスコープが閉じてないからだめだ"
-  (let ((vars (mapcar (lambda (var)
-                        (let ((parrot-var (parrot-var var)))
-                          (prt ".local pmc ~a" parrot-var)
-                          parrot-var))
-                      (vars-of self))))
-    (mapcar (lambda (var value)
-              (let ((val (pir value)))
-                (prt "~a = ~a" var val)))
-            vars (values-of self))
-    (pir (body-of self))))
+  (let ((sub-name (gensym "sub"))
+        (sub (next-var))
+        (args (next-var))
+        (result (next-var)))
+    (prt ".const 'Sub' ~a = '~s'" sub sub-name)
+    (prt "~a = new 'ResizablePMCArray'" args)
+    (mapc (lambda (arg)
+            (prt "push ~a, ~a" args (pir arg)))
+          (values-of self))
+    (prt "~a = ~a(~a :flat)" result sub args)
+    "TODO sub-name を defun する必要がある。
+          あらかじめ変換しておくべきか？"
+    result))
 
+;;  "TODO これだとスコープが閉じてないからだめだ"
+;;  (let ((vars (mapcar (lambda (var)
+;;                        (let ((parrot-var (parrot-var var)))
+;;                          (prt ".local pmc ~a" parrot-var)
+;;                          parrot-var))
+;;                      (vars-of self))))
+;;    (mapcar (lambda (var value)
+;;              (let ((val (pir value)))
+;;                (prt "~a = ~a" var val)))
+;;            vars (values-of self))
+;;    (pir (body-of self))))
+;;
 (progn
   (pir (objectify '(defun foo1 () 1) nil nil nil))
   (pir (objectify '(defun foo2 () a) nil nil nil))
