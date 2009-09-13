@@ -355,11 +355,13 @@
 (defmethod pir ((self constant) &key)
   (let ((var (next-var))
         (value (value-of self)))
-    (prt "~a = new ~s" var
-         (typecase value
-           (integer "Integer")
-           (string "String")))
-    (prt "~a = ~a" var value)
+    (typecase value
+      (integer
+         (prt "~a = new ~s" var "Integer")
+         (prt "~a = ~s" var value))
+      (string
+         (prt "~a = new ~s" var "String")
+         (prt "~a = utf8:unicode:~s" var value)))
     var))
 
 (defmethod pir ((self if-form) &key)
@@ -452,7 +454,7 @@
                       :output *standard-output*))
 
 (compile-and-run '(defun foo (x y)
-                   (let ((x 7))
+                   (let ((x "まみむめも♪"))
                      (say x)
                      (say y))
                    (say x)))
