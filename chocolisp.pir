@@ -5,11 +5,11 @@
         say x
 .end
 
-.namespace [ "CHOCO" ]
-
 .include "parrot-macro.pir"
 .include "package.pir"
 .include "symbol.pir"
+
+.namespace [ "CHOCO" ]
 
 .sub main :main
         .t
@@ -48,22 +48,22 @@
         all_packages = new 'Hash'
         set_global "*all-packages*", all_packages
 
-        $P0 = newclass "T"
+        $P0 = newclass ["CHOCO";"T"]
 
-        $P0 = subclass "T", "CONS"
+        $P0 = subclass ["CHOCO";"T"], ["CHOCO";"CONS"]
         addattribute $P0, 'car'
         addattribute $P0, 'cdr'
 
-        $P0 = subclass "T", "ATOM"
+        $P0 = subclass ["CHOCO";"T"], "ATOM"
 
-        $P0 = subclass "ATOM", "PACKAGE"
+        $P0 = subclass "ATOM", ["CHOCO";"PACKAGE"]
         addattribute $P0, 'name'
         addattribute $P0, 'nick-names'
         addattribute $P0, 'use'
         addattribute $P0, 'external-symbols'
         addattribute $P0, 'internal-symbols'
 
-        $P0 = subclass "ATOM", "SYMBOL"
+        $P0 = subclass "ATOM", ["CHOCO";"SYMBOL"]
         addattribute $P0, 'name'
         addattribute $P0, 'value'
         addattribute $P0, 'function'
@@ -72,7 +72,7 @@
 
 
         .local pmc common_lisp_package
-        common_lisp_package = new "PACKAGE"
+        common_lisp_package = new ["CHOCO";"PACKAGE"]
         common_lisp_package = "COMMON-LISP"
         all_packages["COMMON-LISP"] = common_lisp_package
         set_global "COMMON-LISP", common_lisp_package

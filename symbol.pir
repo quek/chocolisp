@@ -1,4 +1,4 @@
-.namespace [ "SYMBOL" ]
+.namespace [ "CHOCO";"SYMBOL" ]
 
 .sub get_string :vtable
         $P0 = getattribute self, 'name'

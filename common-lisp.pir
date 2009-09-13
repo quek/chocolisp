@@ -9,7 +9,7 @@
 
 .sub 'CAR'
         .param pmc cons
-        $I0 = isa cons, "CONS"
+        $I0 = isa cons, ["CHOCO";"CONS"]
         if $I0 goto LCONS
         .nil
         eq_addr cons, nil, LNIL
@@ -23,7 +23,7 @@ LCONS:
 
 .sub 'CDR'
         .param pmc cons
-        $I0 = isa cons, "CONS"
+        $I0 = isa cons, ["CHOCO";"CONS"]
         if $I0 goto LCONS
         .nil
         eq_addr cons, nil, LNIL
@@ -38,7 +38,7 @@ LCONS:
 .sub 'CONS'
         .param pmc car
         .param pmc cdr
-        $P0 = new "CONS"
+        $P0 = new ["CHOCO";"CONS"]
         setattribute $P0, 'car', car
         setattribute $P0, 'cdr', cdr
         .return($P0)

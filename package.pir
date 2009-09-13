@@ -1,4 +1,4 @@
-.namespace [ "PACKAGE" ]
+.namespace [ "CHOCO";"PACKAGE" ]
 
 .sub init :vtable
         $P0 = new 'Hash'
@@ -35,7 +35,7 @@ l1:
         if $I0 goto intern
         .return(symbol)
 intern:
-        symbol = new "SYMBOL"
+        symbol = new ["CHOCO";"SYMBOL"]
         symbol = name
         setattribute symbol, 'package', self
         .local pmc external
