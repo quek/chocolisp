@@ -291,6 +291,7 @@ defun は .sub してるだけだが、
 
 (defvar *pir-stream* *standard-output*)
 
+(defvar *current-package* (find-package :common-lisp))
 (defvar *var-counter*)
 (defvar *label-counter*)
 (defvar *sub-stack* nil)
@@ -310,6 +311,11 @@ defun は .sub してるだけだが、
 
 (defun parrot-var (lisp-var)
   (format nil "p_~a" lisp-var))
+
+(defun parrot-sub-name (symbol)
+  (if (symbol-package symbol)
+      (format nil "~s" (symbol-name symbol))
+      (format nil "~s" (format nil "~s" symbol))))
 
 (defun prt (format &rest args)
   (apply #'format *pir-stream* (concatenate 'string "~8t" format) args)
@@ -331,9 +337,9 @@ defun は .sub してるだけだが、
           (*sub-stack* (cons name *sub-stack*))
           (modifiers (format nil "~{ ~a~}" modifiers)))
       (if outers
-          (prt-top ".sub '~s' :outer('~a')~a" name (name-of (car outers))
-                   modifiers)
-          (prt-top ".sub '~s'~a" name modifiers))
+          (prt-top ".sub ~a :outer('~a')~a"
+                   (parrot-sub-name name) (name-of (car outers)) modifiers)
+          (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
       (loop for var in arguments
             do (prt ".param pmc ~a" (parrot-var var)))
       (loop for var in lexical-store
@@ -346,7 +352,8 @@ defun は .sub してるだけだが、
   (mapc #'pir (inner-functions-of self)))
 
 (defmethod pir ((self in-package-form) &key)
-  (prt-top ".namespace [ \"~a\" ]~%" (name-of self)))
+  (prt-top ".namespace [ ~s ]~%" (name-of self))
+  (setf *current-package* (find-package (name-of self))))
 
 (defmethod pir ((self local-reference) &key)
   (let ((value (next-var)))
@@ -405,7 +412,14 @@ defun は .sub してるだけだが、
         (args (next-var)))
     (prt "~a = new 'ResizablePMCArray'" args)
     (pir (arguments-of self) :array args)
-    (prt "~a = '~s'(~a :flat)" return-value fun args)
+    (if (eq *current-package* (symbol-package fun))
+        (prt "~a = ~s(~a :flat)" return-value (symbol-name fun) args)
+        (let ((fun-var (next-var)))
+          (prt "~a = get_hll_global [ ~s ], ~s"
+               fun-var
+               (package-name (symbol-package fun))
+               (symbol-name fun))
+          (prt "~a  = ~a(~a :flat)" return-value fun-var args)))
     return-value))
 
 (defmethod pir ((self arguments) &key array)
@@ -420,7 +434,7 @@ defun は .sub してるだけだが、
         (sub (next-var))
         (args (next-var))
         (result (next-var)))
-    (prt ".const 'Sub' ~a = '~s'" sub sub-name)
+    (prt ".const 'Sub' ~a = '~s'" sub (parrot-sub-name sub-name))
     (prt "~a = new 'ResizablePMCArray'" args)
     (mapc (lambda (arg)
             (prt "push ~a, ~a" args (pir arg)))
@@ -432,7 +446,7 @@ defun は .sub してるだけだが、
   (let ((var (next-var))
         (args (next-var))
         (result (next-var)))
-    (prt ".const 'Sub' ~a = '~s'" var (name-of self))
+    (prt ".const 'Sub' ~a = ~a" var (parrot-sub-name (name-of self)))
     (prt "~a = new 'ResizablePMCArray'" args)
     (mapc (lambda (arg)
             (prt "push ~a, ~a" args (pir arg)))
@@ -452,10 +466,13 @@ defun は .sub してるだけだが、
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (let* ((objects (with-open-file (in lisp-file)
-                    (loop for form = (read in nil) while form
-                          collect (extract-let
-                                   (objectify form nil nil nil)
-                                          nil)))))
+                    (let ((*package* *package*))
+                      (loop for form = (read in nil) while form
+                            if (and (consp form) (eq 'in-package (car form)))
+                              do (setf *package* (find-package (cadr form)))
+                            collect (extract-let
+                                     (objectify form nil nil nil)
+                                            nil))))))
     (with-open-file (*pir-stream* pir-file :direction :output
                                   :if-exists :supersede)
       (put-common-header)
@@ -479,16 +496,6 @@ defun は .sub してるだけだが、
 (defun put-common-header ()
   (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
 
-#+nil
-(progn
-  (pir (objectify '(defun foo1 () 1) nil nil nil))
-  (pir (objectify '(defun foo2 () a) nil nil nil))
-  (pir (objectify '(defun foo3 (a) a) nil nil nil))
-  (pir (objectify '(defun foo4 (a) (foo1 a 1 "abc")) nil nil nil))
-  (pir (objectify '(defun foo5 (a) (if a 1 2)) nil nil nil))
-  (pir (objectify '(defun foo7 (x) (let ((x 1)) (foo x)) (foo x)) nil nil nil))
-  )
-
 (defun compile-and-run (form &optional (file "/tmp/a.pir"))
   (format t "~&=====================================~%")
   (with-open-file (out file :direction :output
@@ -508,7 +515,7 @@ defun は .sub してるだけだが、
   (sb-ext:run-program "parrot" (list file) :search t
                       :wait t
                       :output *standard-output*))
-
+#+nil
 (compile-and-run '(defun foo (x y)
                    (let ((x "まみむめも♪"))
                      (print x)

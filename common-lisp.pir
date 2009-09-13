@@ -43,3 +43,10 @@ LCONS:
         setattribute $P0, 'cdr', cdr
         .return($P0)
 .end
+
+.sub 'PRINT'
+        .param pmc x
+        say ""
+        print x
+        print " "
+.end

@@ -1,10 +1,5 @@
 .HLL "chocolisp"
 
-.sub 'PRINT'
-        .param pmc x
-        say x
-.end
-
 .include "parrot-macro.pir"
 .include "package.pir"
 .include "symbol.pir"
