@@ -56,6 +56,7 @@
         addattribute $P0, 'function'
         addattribute $P0, 'plist'
         addattribute $P0, 'package'
+        addattribute $P0, 'dynamic-values'
 
 
         .local pmc common_lisp_package
@@ -72,6 +73,11 @@
         common_lisp_package.'export'(t)
         setattribute t, 'value', t
         set_global "T", t
+
+        .local pmc cl_user, use_list
+        cl_user = make_package("COMMON-LISP-USER", "CL-USER")
+        use_list = getattribute cl_user, 'use-list'
+        push use_list, common_lisp_package
 .end
 
 ## TODO nickname
