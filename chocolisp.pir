@@ -10,7 +10,9 @@
 .include "parrot-macro.pir"
 
 .sub main :main
+        say "==== start compiler/a.pbc ===="
         load_bytecode "compiler/a.pbc"
+        say "==== end compiler/a.pbc ===="
         .t
         .nil
         say t

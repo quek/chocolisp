@@ -1,16 +1,8 @@
 #|
-(in-package "a")
-(EVAL-WHEN (:COMPILE-TOPLEVEL :LOAD-TOPLEVEL :EXECUTE)
-  (SETQ *PACKAGE* (SB-INT:FIND-UNDELETED-PACKAGE-OR-LOSE "a")))
-とかはどうするんだ？
-.namespace ["a"]
-でいいのか。
-
-トップレベルでいろいろ問題ありそう。
-全体を .sub .end で囲んで、中の defun 等を外出しにすればいいかも。
-
-(let ((x (defun f () 'foo))))
-とかの場合は .const 'Sub' x = 'f' すればいいかな。
+defun は .sub してるだけだが、
+.const 'Sub' $P1 = 'fun'
+を symbol-function に setf した方がいいのかな？
+(let ((*packgae* :baha)) とかした場合の挙動が不明。。。
 |#
 (declaim (optimize (debug 3) (safety 3)))
 
@@ -40,6 +32,9 @@
 (defclass* dynamic-reference (reference) ())
 
 (defclass* free-reference (reference) ())
+
+(defclass* in-package-form (program)
+  ((name)))
 
 (defclass* defun-form (program)
   ((name)
@@ -117,6 +112,17 @@
   ((mutable?)
    (dotted?)))
 
+(defgeneric toplevelp (x))
+
+(defmethod toplevelp ((self object))
+  nil)
+
+(defmethod toplevelp ((self in-package-form))
+  t)
+
+(defmethod toplevelp ((self flat-function))
+  t)
+
 (defun walk-object (object function &rest args)
   (mapc (lambda (slot-definition)
           (let* ((slot-name (sb-mop:slot-definition-name slot-definition))
@@ -154,6 +160,8 @@
             )
         (defun
             (objectify-defun (cadr form) (caddr form) (cdddr form) r d f))
+        (in-package
+           (objectify-in-package (cadr form)))
         (t (objectify-application (car form) (cdr form) r d f)))))
 
 (defun objectify-quotation (value)
@@ -216,6 +224,9 @@
           (make-instance 'progn-form
                          :first (objectify (car body) r d f)
                          :last (objectify-progn (cdr body) r d f)))))
+
+(defun objectify-in-package (name)
+  (make-instance 'in-package-form :name name))
 
 (defun make-arguments (args)
   (if args
@@ -334,6 +345,9 @@
 (defmethod pir :after ((self flat-function) &key)
   (mapc #'pir (inner-functions-of self)))
 
+(defmethod pir ((self in-package-form) &key)
+  (prt-top ".namespace [ \"~a\" ]~%" (name-of self)))
+
 (defmethod pir ((self local-reference) &key)
   (let ((value (next-var)))
     (prt "~a = ~a" value (parrot-var (var-of self)))
@@ -426,19 +440,6 @@
     (prt "~a = ~a(~a :flat)" result var args)
     result))
 
-(defun make-init-sub (objects)
-  (when objects
-    (labels ((f (x)
-               (if (endp (cdr x))
-                   (car x)
-                   (make-instance 'progn-form :first (car x)
-                                  :last (f (cdr x))))))
-      (make-instance 'flat-function
-                     :name (gensym "init")
-                     :arguments nil
-                     :body (f objects)
-                     :modifiers '(":anon" ":init" ":load")))))
-
 (defun parrot-compile-file (file &optional
                             (pir-file (namestring
                                        (make-pathname :type "pir"
@@ -446,29 +447,34 @@
                             (pbc-file (namestring
                                        (make-pathname :type "pbc"
                                                       :defaults file))))
-  (let* ((objects (with-open-file (in file)
+  (compile-lisp-to-pir file pir-file)
+  (compile-pir-to-pbc pir-file pbc-file))
+
+(defun compile-lisp-to-pir (lisp-file pir-file)
+  (let* ((objects (with-open-file (in lisp-file)
                     (loop for form = (read in nil) while form
                           collect (extract-let
                                    (objectify form nil nil nil)
-                                          nil))))
-         (flat-functions (loop for object in objects
-                               if (typep object 'flat-function)
-                                 collect object))
-         (init (make-init-sub (loop for object in objects
-                                    unless (typep object 'flat-function)
-                                      collect object))))
-    (with-open-file (*pir-stream* pir-file
-                                  :direction :output
+                                          nil)))))
+    (with-open-file (*pir-stream* pir-file :direction :output
                                   :if-exists :supersede)
       (put-common-header)
-      (when init (pir init))
-      (loop for each in flat-functions
-            do (pir each)))
-    (sb-ext:run-program "parrot"
-                        (list "-o" pbc-file pir-file)
-                        :search t
-                        :wait t
-                        :output *standard-output*)))
+      (loop for x in objects
+            if (toplevelp x)
+              do (pir x)
+            else
+              do (pir (make-instance 'flat-function
+                           :name (gensym "init")
+                           :arguments nil
+                           :body x
+                           :modifiers '(":anon" ":init" ":load")))))))
+
+(defun compile-pir-to-pbc (pir-file pbc-file)
+  (sb-ext:run-program "parrot"
+                      (list "-o" pbc-file pir-file)
+                      :search t
+                      :wait t
+                      :output *standard-output*))
 
 (defun put-common-header ()
   (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
