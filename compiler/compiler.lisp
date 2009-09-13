@@ -49,7 +49,8 @@
 (defclass* flat-function (defun-form)
   ((inner-functions nil)
    (lexical-store nil)
-   (outers nil)))
+   (outers nil)
+   (modifiers nil)))
 
 (defclass* extracted-let (program)
   ((name)
@@ -313,20 +314,22 @@
 (defgeneric pir (program &key &allow-other-keys))
 
 (defmethod pir ((self flat-function) &key)
-  (with-slots (name arguments body outers lexical-store) self
+  (with-slots (name arguments body outers lexical-store modifiers) self
     (let ((*var-counter* 0)
           (*label-counter* 0)
-          (*sub-stack* (cons name *sub-stack*)))
+          (*sub-stack* (cons name *sub-stack*))
+          (modifiers (format nil "~{ ~a~}" modifiers)))
       (if outers
-          (prt-top ".sub '~s' :outer('~a')" name (name-of (car outers)))
-          (prt-top ".sub '~s'" name))
+          (prt-top ".sub '~s' :outer('~a')~a" name (name-of (car outers))
+                   modifiers)
+          (prt-top ".sub '~s'~a" name modifiers))
       (loop for var in arguments
             do (prt ".param pmc ~a" (parrot-var var)))
       (loop for var in lexical-store
             do (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
       (let ((ret (pir body)))
         (prt ".return(~a)" ret))
-      (prt-top ".end"))))
+      (prt-top ".end~%"))))
 
 (defmethod pir :after ((self flat-function) &key)
   (mapc #'pir (inner-functions-of self)))
@@ -384,7 +387,7 @@
 
 (defmethod pir ((self regular-application) &key)
   (let ((return-value (next-var))
-        (fun (symbol-name (function-of self)))
+        (fun (function-of self))
         (args (next-var)))
     (prt "~a = new 'ResizablePMCArray'" args)
     (pir (arguments-of self) :array args)
@@ -423,6 +426,53 @@
     (prt "~a = ~a(~a :flat)" result var args)
     result))
 
+(defun make-init-sub (objects)
+  (when objects
+    (labels ((f (x)
+               (if (endp (cdr x))
+                   (car x)
+                   (make-instance 'progn-form :first (car x)
+                                  :last (f (cdr x))))))
+      (make-instance 'flat-function
+                     :name (gensym "init")
+                     :arguments nil
+                     :body (f objects)
+                     :modifiers '(":anon" ":init" ":load")))))
+
+(defun parrot-compile-file (file &optional
+                            (pir-file (namestring
+                                       (make-pathname :type "pir"
+                                                      :defaults file)))
+                            (pbc-file (namestring
+                                       (make-pathname :type "pbc"
+                                                      :defaults file))))
+  (let* ((objects (with-open-file (in file)
+                    (loop for form = (read in nil) while form
+                          collect (extract-let
+                                   (objectify form nil nil nil)
+                                          nil))))
+         (flat-functions (loop for object in objects
+                               if (typep object 'flat-function)
+                                 collect object))
+         (init (make-init-sub (loop for object in objects
+                                    unless (typep object 'flat-function)
+                                      collect object))))
+    (with-open-file (*pir-stream* pir-file
+                                  :direction :output
+                                  :if-exists :supersede)
+      (put-common-header)
+      (when init (pir init))
+      (loop for each in flat-functions
+            do (pir each)))
+    (sb-ext:run-program "parrot"
+                        (list "-o" pbc-file pir-file)
+                        :search t
+                        :wait t
+                        :output *standard-output*)))
+
+(defun put-common-header ()
+  (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
+
 #+nil
 (progn
   (pir (objectify '(defun foo1 () 1) nil nil nil))
@@ -442,7 +492,7 @@
 .sub main
         'FOO'(100, 123)
 .end
-.sub 'SAY'
+.sub 'PRINT'
         .param pmc x
         say x
 .end
@@ -455,6 +505,9 @@
 
 (compile-and-run '(defun foo (x y)
                    (let ((x "まみむめも♪"))
-                     (say x)
-                     (say y))
-                   (say x)))
+                     (print x)
+                     (print y))
+                   (print x)))
+
+
+(parrot-compile-file "a.lisp")

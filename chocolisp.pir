@@ -1,18 +1,16 @@
 .HLL "chocolisp"
 
+.sub 'PRINT'
+        .param pmc x
+        say x
+.end
+
 .namespace [ "CHOCO" ]
 
-.macro nil
-        .local pmc nil
-        nil = get_global "NIL"
-.endm
-
-.macro t
-        .local pmc t
-        t = get_global "T"
-.endm
+.include "parrot-macro.pir"
 
 .sub main :main
+        load_bytecode "compiler/a.pbc"
         .t
         .nil
         say t
@@ -29,6 +27,12 @@
         tail = nil
         $P0 = 'meaning'(e, r, f, d, tail)
         $P1 = inspect $P0
+        say $P1
+
+        $P0 = get_hll_global [ "COMMON-LISP" ], "CONS"
+        $P1 = $P0("car value", "cdr value")
+        $P0 = get_hll_global [ "COMMON-LISP" ], "CAR"
+        $P1 = $P0($P1)
         say $P1
 .end
 
@@ -447,3 +451,6 @@ intern:
         .param pmc str
         setattribute self, 'name', str
 .end
+
+
+.include "common-lisp.pir"
