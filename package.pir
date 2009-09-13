@@ -5,6 +5,10 @@
         setattribute self, 'external-symbols', $P0
         $P0 = new 'Hash'
         setattribute self, 'internal-symbols', $P0
+        $P0 = new 'ResizablePMCArray'
+        setattribute self, 'use-list', $P0
+        $P0 = new 'ResizablePMCArray'
+        setattribute self, 'nick-names', $P0
 .end
 
 .sub set_string_native :vtable
@@ -38,8 +42,20 @@ intern:
         symbol = new ["CHOCO";"SYMBOL"]
         symbol = name
         setattribute symbol, 'package', self
+        .local pmc internal
+        internal = getattribute self, 'internal-symbols'
+        internal[name] = symbol
+        .return(symbol)
+.end
+
+.sub 'export' :method
+        .param pmc symbol
+        .local pmc symbol_name
+        symbol_name = getattribute symbol, 'name'
         .local pmc external
         external = getattribute self, 'external-symbols'
-        external[name] = symbol
-        .return(symbol)
+        external[symbol_name] = symbol
+        .local pmc internal
+        internal = getattribute self, 'internal-symbols'
+        delete internal[symbol_name]
 .end
