@@ -12,8 +12,7 @@
 (let ((x (defun f () 'foo))))
 とかの場合は .const 'Sub' x = 'f' すればいいかな。
 |#
-(declaim (optimize (debug 3) (safety 3) (speed 0) (space 0)
-                   (compilation-speed 0)))
+(declaim (optimize (debug 3) (safety 3)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :defclass-star))
@@ -40,19 +39,17 @@
 
 (defclass* dynamic-reference (reference) ())
 
+(defclass* free-reference (reference) ())
+
 (defclass* defun-form (program)
   ((name)
-   (lambda-list)
+   (arguments)
    (body)))
 
 (defclass* flat-function (defun-form)
-  ((lambdas nil)))
-
-(defclass* closure (program)
-  ((name)
-   (outer)
-   (lambda-list)
-   (body)))
+  ((inner-functions nil)
+   (lexical-store nil)
+   (outers nil)))
 
 (defclass* extracted-let (program)
   ((name)
@@ -145,9 +142,9 @@
             (objectify-if (cadr form) (caddr form) (cadddr form)
                           r d f))
         (let
-            (objectify-let (cadr form) (caddr form) r d f))
+            (objectify-let (cadr form) (cddr form) r d f))
         (lambda
-            (objectify-lambda (cadr form) (caddr form) r d f))
+            (objectify-lambda (cadr form) (cddr form) r d f))
         (progn
           (objectify-progn (cdr form) r d f))
         (flet
@@ -195,10 +192,11 @@
           and collect (objectify (cadr bind) r d f) into values
           and do (setq new-r (cons (cons (car bind) :local) new-r))
         end
-        finally (return (make-instance 'let-form
-                                       :vars vars
-                                       :values values
-                                       :body (objectify body new-r d f)))))
+        finally (return
+                  (make-instance 'let-form
+                                 :vars vars
+                                 :values values
+                                 :body (objectify-progn body new-r d f)))))
 
 (defun objectify-lambda (vars body r d f)
   (make-instance 'lambda-form
@@ -206,7 +204,7 @@
                  :body (objectify body (extend-r r vars) d f)))
 
 (defun objectify-defun (name lambda-list body r d f)
-  (make-instance 'defun-form :name name :lambda-list lambda-list
+  (make-instance 'defun-form :name name :arguments lambda-list
                  :body (objectify-progn body (extend-r r lambda-list) d f)))
 
 (defun objectify-progn (body r d f)
@@ -218,43 +216,66 @@
                          :first (objectify (car body) r d f)
                          :last (objectify-progn (cdr body) r d f)))))
 
+(defun make-arguments (args)
+  (if args
+      (make-instance 'arguments
+                     :first (car args)
+                     :others (make-arguments (cdr args)))
+      (make-instance 'no-argument)))
+
 (defun objectify-application (fun args r d f)
-  (let ((objected-args (mapcar (lambda (arg) (objectify arg r d f))
-                               args)))
+  (let ((objected-args (make-arguments
+                        (loop for arg in args
+                              collect (objectify arg r d f)))))
     (make-instance 'regular-application
                    :function fun
                    :arguments objected-args)))
 
+(defun set-lexical-var (var outers)
+  (loop for flat-function in outers
+        if (member var (arguments-of flat-function))
+          do (progn (push var (lexical-store-of flat-function))
+                    (return))))
 
-(defgeneric extract-let (object flat-function outer))
+(defgeneric extract-let (object outers))
 
-(defmethod extract-let ((self program) flat-function outer)
-  (walk-object self #'extract-let flat-function outer))
+(defmethod extract-let ((self local-reference) outers)
+  (with-accessors ((var var-of)) self
+    (if (member var (arguments-of (car outers)))
+        self
+        (progn
+          (set-lexical-var var outers)
+          (make-instance 'free-reference :var var)))))
 
-(defmethod extract-let ((self defun-form) flat-function outer)
-  (let* ((flat-function (make-instance 'flat-function
-                                       :name (name-of self)
-                                       :lambda-list (lambda-list-of self)))
-         (extracted-body (extract-let (body-of self) flat-function
-                                      flat-function)))
-    (setf (body-of flat-function) extracted-body)
-    flat-function))
+(defmethod extract-let ((self program) outers)
+  (walk-object self #'extract-let outers))
 
-(defmethod extract-let ((self let-form) flat-function outer)
-  (let* ((closure-name (gensym "sub"))
-         (closure (make-instance 'closure
-                                 :name closure-name
-                                 :outer (name-of outer)
-                                 :lambda-list (vars-of self)
-                                 :body nil)))
-    (push closure (lambdas-of flat-function))
-    (setf (body-of closure) (extract-let (body-of self) flat-function
-                                         closure))
+(defmethod extract-let ((self defun-form) outers)
+  (with-accessors ((name name-of) (arguments arguments-of) (body body-of))
+      self
+    (let* ((flat-function (make-instance 'flat-function
+                                         :name name
+                                         :arguments arguments))
+           (extracted-body (extract-let body
+                                        (cons flat-function outers))))
+      (setf (body-of flat-function) extracted-body)
+      flat-function)))
+
+(defmethod extract-let ((self let-form) outers)
+  (let* ((name (gensym "sub"))
+         (flat-function (make-instance 'flat-function
+                                       :name name
+                                       :outers outers
+                                       :arguments (vars-of self)
+                                       :body nil)))
+    (push flat-function (inner-functions-of (car outers)))
+    (setf (body-of flat-function)
+          (extract-let (body-of self)
+                       (cons flat-function outers)))
     (make-instance 'extracted-let
-                   :name closure-name
+                   :name name
                    :values (values-of self))))
 
-(defgeneric pir (program))
 
 (defvar *pir-stream* *standard-output*)
 
@@ -289,35 +310,49 @@
 (defun prt-label (label)
   (format *pir-stream* "~a:~%" label))
 
-(defmethod pir ((self defun-form))
-  (let ((*var-counter* 0)
-        (*label-counter* 0)
-        (*sub-stack* (cons (name-of self) *sub-stack*)))
-    (prt-top ".sub '~s'" (name-of self))
-    (mapc (lambda (arg)
-            (prt ".param pmc ~a" (parrot-var arg)))
-          (lambda-list-of self))
-    (let ((ret (pir (body-of self))))
-      (prt ".return(~a)" ret))
-    (prt-top ".end")))
+(defgeneric pir (program &key &allow-other-keys))
 
-(defmethod pir ((self local-reference))
+(defmethod pir ((self flat-function) &key)
+  (with-slots (name arguments body outers lexical-store) self
+    (let ((*var-counter* 0)
+          (*label-counter* 0)
+          (*sub-stack* (cons name *sub-stack*)))
+      (if outers
+          (prt-top ".sub '~s' :outer('~a')" name (name-of (car outers)))
+          (prt-top ".sub '~s'" name))
+      (loop for var in arguments
+            do (prt ".param pmc ~a" (parrot-var var)))
+      (loop for var in lexical-store
+            do (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
+      (let ((ret (pir body)))
+        (prt ".return(~a)" ret))
+      (prt-top ".end"))))
+
+(defmethod pir :after ((self flat-function) &key)
+  (mapc #'pir (inner-functions-of self)))
+
+(defmethod pir ((self local-reference) &key)
   (let ((value (next-var)))
     (prt "~a = ~a" value (parrot-var (var-of self)))
     value))
 
-(defmethod pir ((self global-reference))
+(defmethod pir ((self free-reference) &key)
+  (let ((value (next-var)))
+    (prt "~a = find_lex '~a'" value (parrot-var (var-of self)))
+    value))
+
+(defmethod pir ((self global-reference) &key)
   "$P1 = find_symbol('name of var')
    $P2 = getattribute $P1, 'value'"
   (let ((symbol (next-var))
         (value  (next-var)))
-  (prt "~a = find_symbol(\"~a\")"
-          symbol (symbol-name (var-of self)))
-  (prt "~a = getattribute ~a, 'value'"
-          value symbol)
+    (prt "~a = find_symbol(\"~a\")"
+         symbol (symbol-name (var-of self)))
+    (prt "~a = getattribute ~a, 'value'"
+         value symbol)
     value))
 
-(defmethod pir ((self constant))
+(defmethod pir ((self constant) &key)
   (let ((var (next-var))
         (value (value-of self)))
     (prt "~a = new ~s" var
@@ -327,7 +362,7 @@
     (prt "~a = ~a" var value)
     var))
 
-(defmethod pir ((self if-form))
+(defmethod pir ((self if-form) &key)
   (let ((test (next-var "I"))
         (result (next-var))
         (else-label (next-label "ELSE"))
@@ -341,22 +376,27 @@
     (prt-label end-label)
     result))
 
-(defmethod pir ((self progn-form))
+(defmethod pir ((self progn-form) &key)
   (pir (first-of self))
   (pir (last-of self)))
 
-(defmethod pir ((self regular-application))
+(defmethod pir ((self regular-application) &key)
   (let ((return-value (next-var))
         (fun (symbol-name (function-of self)))
         (args (next-var)))
     (prt "~a = new 'ResizablePMCArray'" args)
-    (mapc (lambda (arg)
-            (prt "push ~a, ~a" args (pir arg)))
-          (arguments-of self))
+    (pir (arguments-of self) :array args)
     (prt "~a = '~s'(~a :flat)" return-value fun args)
     return-value))
 
-(defmethod pir ((self let-form))
+(defmethod pir ((self arguments) &key array)
+  (prt "push ~a, ~a" array (pir (first-of self)))
+  (pir (others-of self) :array array))
+
+(defmethod pir ((self no-argument) &key array)
+  array)
+
+(defmethod pir ((self let-form) &key)
   (let ((sub-name (gensym "sub"))
         (sub (next-var))
         (args (next-var))
@@ -369,10 +409,7 @@
     (prt "~a = ~a(~a :flat)" result sub args)
     result))
 
-(defmethod pir :after ((self flat-function))
-  (mapc #'pir (lambdas-of self)))
-
-(defmethod pir ((self extracted-let))
+(defmethod pir ((self extracted-let) &key)
   (let ((var (next-var))
         (args (next-var))
         (result (next-var)))
@@ -383,18 +420,6 @@
           (values-of self))
     (prt "~a = ~a(~a :flat)" result var args)
     result))
-
-(defmethod pir ((self closure))
-  (let ((*var-counter* 0)
-        (*label-counter* 0)
-        (*sub-stack* (cons (name-of self) *sub-stack*)))
-    (prt-top ".sub '~s' :outer('~s')" (name-of self) (outer-of self))
-    (mapc (lambda (arg)
-            (prt ".param pmc ~a" (parrot-var arg)))
-          (lambda-list-of self))
-    (let ((ret (pir (body-of self))))
-      (prt ".return(~a)" ret))
-    (prt-top ".end")))
 
 #+nil
 (progn
@@ -413,20 +438,21 @@
     (let ((*pir-stream* (make-broadcast-stream out *standard-output*)))
       (format *pir-stream* "
 .sub main
-        'FOO'(100)
+        'FOO'(100, 123)
 .end
 .sub 'SAY'
         .param pmc x
         say x
 .end
 ")
-      (pir (extract-let (objectify form nil nil nil) nil nil))))
+      (pir (extract-let (objectify form nil nil nil) nil))))
   (format t "~&=====================================~%")
   (sb-ext:run-program "parrot" (list file) :search t
                       :wait t
                       :output *standard-output*))
 
-(compile-and-run '(defun foo (x)
+(compile-and-run '(defun foo (x y)
                    (let ((x 7))
-                     (say x))
+                     (say x)
+                     (say y))
                    (say x)))
