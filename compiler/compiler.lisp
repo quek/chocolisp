@@ -475,7 +475,7 @@ defun は .sub してるだけだが、
 (defmethod pir ((self eval-when-form) &key)
   (with-slots (situations form) self
     (when (member :compile-toplevel situations)
-      ;; PIR 的これでいい？ eval の実装の問題か?
+      ;; TODO PIR 的これでいい？ eval の実装の問題か? よくないよね？
       (eval form))
     (let ((modifiers `(,@(when (member :load-toplevel situations)
                            '(":load"))
