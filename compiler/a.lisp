@@ -1,7 +1,7 @@
 (in-package "COMMON-LISP-USER")
 
 (defun foo ()
-  (bar 1))
+  (bar "百"))
 
 (defun bar (n)
   (let ((n 100))

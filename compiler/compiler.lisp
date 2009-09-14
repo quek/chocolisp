@@ -3,6 +3,14 @@ defun は .sub してるだけだが、
 .const 'Sub' $P1 = 'fun'
 を symbol-function に setf した方がいいのかな？
 (let ((*packgae* :baha)) とかした場合の挙動が不明。。。
+
+(compile-file "/tmp/a.lisp")
+:COMPILE-TOPLEVEL
+(load "/tmp/a.lisp")
+:EXECUTE  -> :load
+(load "/tmp/a")
+:LOAD-TOPLEVEL  -> :init
+ってこと？
 |#
 (declaim (optimize (debug 3) (safety 3)))
 
@@ -20,8 +28,12 @@ defun は .sub してるだけだが、
 
 (defclass* program (object) ())
 
+(defclass* eval-when-form (program)
+  ((situations)
+   (form)))
+
 (defclass* reference (program)
-  (var))
+  ((var)))
 
 (defclass* local-reference (reference) ())
 
@@ -162,7 +174,13 @@ defun は .sub してるだけだが、
             (objectify-defun (cadr form) (caddr form) (cdddr form) r d f))
         (in-package
            (objectify-in-package (cadr form)))
+        (eval-when
+            (objectify-eval-when (cadr form) (cddr form) r d f))
         (t (objectify-application (car form) (cdr form) r d f)))))
+
+(defun objectify-eval-when (situations form r d f)
+  (make-instance 'eval-when-form :situations situations
+                 :form (objectify-progn form r d f)))
 
 (defun objectify-quotation (value)
   (make-instance 'constant :value value))
@@ -454,6 +472,24 @@ defun は .sub してるだけだが、
     (prt "~a = ~a(~a :flat)" result var args)
     result))
 
+(defmethod pir ((self eval-when-form) &key)
+  (with-slots (situations form) self
+    (when (member :compile-toplevel situations)
+      ;; PIR 的これでいい？ eval の実装の問題か?
+      (eval form))
+    (let ((modifiers `(,@(when (member :load-toplevel situations)
+                           '(":load"))
+                         ,@(when (member :execute situations)
+                             '(":init")))))
+      (when modifiers
+        (pir (make-instance
+              'flat-function
+              :name (gensym "init")
+              :arguments nil
+              :body form
+              :modifiers `(":anon" ,@modifiers)))))))
+
+
 (defun parrot-compile-file (file &optional
                             (pir-file (namestring
                                        (make-pathname :type "pir"
@@ -465,26 +501,25 @@ defun は .sub してるだけだが、
   (compile-pir-to-pbc pir-file pbc-file))
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
-  (let* ((objects (with-open-file (in lisp-file)
-                    (let ((*package* *package*))
-                      (loop for form = (read in nil) while form
-                            if (and (consp form) (eq 'in-package (car form)))
-                              do (setf *package* (find-package (cadr form)))
-                            collect (extract-let
-                                     (objectify form nil nil nil)
-                                            nil))))))
+  (with-open-file (in lisp-file)
     (with-open-file (*pir-stream* pir-file :direction :output
                                   :if-exists :supersede)
       (put-common-header)
-      (loop for x in objects
-            if (toplevelp x)
-              do (pir x)
-            else
-              do (pir (make-instance 'flat-function
-                           :name (gensym "init")
-                           :arguments nil
-                           :body x
-                           :modifiers '(":anon" ":init" ":load")))))))
+      (let ((*package* *package*))
+        (loop for form = (read in nil)
+              while form
+              ;; ここも eval-when を実装すれば不要。
+              if (and (consp form) (eq 'in-package (car form)))
+                do (setf *package* (find-package (cadr form)))
+              do (let ((object (extract-let (objectify form nil nil nil) nil)))
+                   (if (toplevelp object)
+                       (pir object)
+                       (pir (make-instance
+                             'flat-function
+                             :name (gensym "init")
+                             :arguments nil
+                             :body object
+                             :modifiers '(":anon" ":init" ":load"))))))))))
 
 (defun compile-pir-to-pbc (pir-file pbc-file)
   (sb-ext:run-program "parrot"
@@ -496,31 +531,14 @@ defun は .sub してるだけだが、
 (defun put-common-header ()
   (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
 
-(defun compile-and-run (form &optional (file "/tmp/a.pir"))
-  (format t "~&=====================================~%")
-  (with-open-file (out file :direction :output
-                       :if-exists :supersede)
-    (let ((*pir-stream* (make-broadcast-stream out *standard-output*)))
-      (format *pir-stream* "
-.sub main
-        'FOO'(100, 123)
-.end
-.sub 'PRINT'
-        .param pmc x
-        say x
-.end
-")
-      (pir (extract-let (objectify form nil nil nil) nil))))
-  (format t "~&=====================================~%")
-  (sb-ext:run-program "parrot" (list file) :search t
+(defun compile-and-run (&optional (file "a.lisp"))
+  (parrot-compile-file (merge-pathnames file *load-truename*))
+  (locally (declare (optimize (speed 0)))
+    (sb-posix:chdir "/home/ancient/letter/parrot/chocolisp/"))
+  (sb-ext:run-program "parrot"
+                      (list "chocolisp.pir")
+                      :search t
                       :wait t
                       :output *standard-output*))
-#+nil
-(compile-and-run '(defun foo (x y)
-                   (let ((x "まみむめも♪"))
-                     (print x)
-                     (print y))
-                   (print x)))
 
-
-(parrot-compile-file "a.lisp")
+(compile-and-run)
