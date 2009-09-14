@@ -309,7 +309,6 @@ defun は .sub してるだけだが、
 
 (defvar *pir-stream* *standard-output*)
 
-(defvar *current-package* (find-package :common-lisp))
 (defvar *var-counter*)
 (defvar *label-counter*)
 (defvar *sub-stack* nil)
@@ -371,7 +370,7 @@ defun は .sub してるだけだが、
 
 (defmethod pir ((self in-package-form) &key)
   (prt-top ".namespace [ ~s ]~%" (name-of self))
-  (setf *current-package* (find-package (name-of self))))
+  (setf *package* (find-package (name-of self))))
 
 (defmethod pir ((self local-reference) &key)
   (let ((value (next-var)))
@@ -430,7 +429,7 @@ defun は .sub してるだけだが、
         (args (next-var)))
     (prt "~a = new 'ResizablePMCArray'" args)
     (pir (arguments-of self) :array args)
-    (if (eq *current-package* (symbol-package fun))
+    (if (eq *package* (symbol-package fun))
         (prt "~a = ~s(~a :flat)" return-value (symbol-name fun) args)
         (let ((fun-var (next-var)))
           (prt "~a = get_hll_global [ ~s ], ~s"
@@ -508,9 +507,6 @@ defun は .sub してるだけだが、
       (let ((*package* *package*))
         (loop for form = (read in nil)
               while form
-              ;; ここも eval-when を実装すれば不要。
-              if (and (consp form) (eq 'in-package (car form)))
-                do (setf *package* (find-package (cadr form)))
               do (let ((object (extract-let (objectify form nil nil nil) nil)))
                    (if (toplevelp object)
                        (pir object)
