@@ -1,10 +1,17 @@
 (in-package "COMMON-LISP-USER")
 
+(defvar *x* "*x* is 701")
+
 (defun foo ()
-  (bar "百"))
+  (print *x*)
+  (let ((*x* "*x* is 702"))
+    (bar "百")))
 
 (defun bar (n)
+  (print *x*)
   (let ((n 100))
+    (print n)
+    (setq n 99)
     (print n))
   (print n))
 

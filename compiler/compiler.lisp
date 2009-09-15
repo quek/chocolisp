@@ -32,6 +32,10 @@ defun は .sub してるだけだが、
   ((situations)
    (form)))
 
+(defclass* defvar-form (program)
+  ((symbol)
+   (value)))
+
 (defclass* reference (program)
   ((var)))
 
@@ -63,17 +67,18 @@ defun は .sub してるだけだが、
   ((name)
    (values)))
 
-(defclass* local-assignment (program)
-  ((reference)
-   (form)))
-
-(defclass* global-assignment (program)
+(defclass* assignment (program)
   ((var)
    (form)))
 
-(defclass* dynamic-assignment (program)
-  ((reference)
-   (form)))
+(defclass* local-assignment (assignment)
+  ())
+
+(defclass* global-assignment (assignment)
+  ())
+
+(defclass* dynamic-assignment (assignment)
+  ())
 
 (defclass* lambda-form (program)
   ((vars)
@@ -166,6 +171,9 @@ defun は .sub してるだけだが、
             (objectify-lambda (cadr form) (cddr form) r d f))
         (progn
           (objectify-progn (cdr form) r d f))
+        (setq
+           ;; TODO 1 つだけじゃない
+           (objectify-setq (cadr form) (caddr form) r d f))
         (flet
             )
         (labels
@@ -176,7 +184,48 @@ defun は .sub してるだけだが、
            (objectify-in-package (cadr form)))
         (eval-when
             (objectify-eval-when (cadr form) (cddr form) r d f))
+        (defvar
+            (objectify-defvar (cadr form) (caddr form) r d f))
         (t (objectify-application (car form) (cdr form) r d f)))))
+
+(defparameter *info* nil)
+
+(defun get-info (object key)
+  (assoc key (cdr (assoc object *info*))))
+
+(defun set-info (object key value)
+  (let ((info (assoc object *info*)))
+    (if info
+        (let ((key-value (assoc key (cdr info))))
+          (if key-value
+              (setf (cdr key-value) value)
+              (setf (cdr info) (acons key value (cdr info)))))
+        (setf *info* (acons object (acons key value nil) *info*)))))
+
+(defun var-kind (var r d f)
+  (declare (ignore d f))
+  (if (eq (get-info var :kind) :special)
+      :dynamic
+      (let ((x (assoc var r)))
+        (if x
+            (cdr x)
+            :global))))
+
+(defun objectify-setq (symbol value-form r d f)
+  (make-instance (case (var-kind symbol r d f)
+                   (:local
+                      'local-assignment)
+                   (:global
+                      'global-assignment)
+                   (:dynamic
+                      'dynamic-assignment))
+                 :var symbol
+                 :form (objectify value-form r d f)))
+
+(defun objectify-defvar (symbol value-form r d f)
+  ;; TODO r とか d を拡張しなきゃいけないのでは？
+  (make-instance 'defvar-form :symbol symbol
+                 :value (objectify value-form r d f)))
 
 (defun objectify-eval-when (situations form r d f)
   (make-instance 'eval-when-form :situations situations
@@ -194,13 +243,6 @@ defun は .sub してるだけだが、
     (:dynamic
        (make-instance 'dynamic-reference :var var))))
 
-(defun var-kind (var r d f)
-  (declare (ignore d f))
-  (let ((x (assoc var r)))
-    (if x
-        (cdr x)
-        :global)))
-
 (defun objectify-if (test then else r d f)
   (make-instance 'if-form
                  :test (objectify test r d f)
@@ -210,15 +252,13 @@ defun は .sub してるだけだが、
 (defun objectify-let (bindings body r d f)
   (loop with new-r = r
         for bind in bindings
-        if (atom bind)
-          collect bind into vars
-          and collect nil into values
-          and do (setq new-r (cons (cons bind :local) new-r))
-        else
-          collect (car bind) into vars
-          and collect (objectify (cadr bind) r d f) into values
-          and do (setq new-r (cons (cons (car bind) :local) new-r))
-        end
+        for (var form) = (if (atom bind) (cons bind nil) bind)
+        collect var into vars
+        collect (objectify form r d f) into values
+        do (setq new-r (cons (cons var (case (var-kind var r d f)
+                                         (:dynamic :dynamic)
+                                         (t :local)))
+                             new-r))
         finally (return
                   (make-instance 'let-form
                                  :vars vars
@@ -325,9 +365,14 @@ defun は .sub してるだけだが、
   (defun current-label ()
     var))
 
-
 (defun parrot-var (lisp-var)
-  (format nil "p_~a" lisp-var))
+  (with-output-to-string (out)
+    (write-string "p_" out)
+    (loop for c across (format nil  "~s" lisp-var)
+          if (alphanumericp c)
+            do (write-char c out)
+          else
+            do (princ (char-code c) out))))
 
 (defun parrot-sub-name (symbol)
   (if (symbol-package symbol)
@@ -346,6 +391,31 @@ defun は .sub してるだけだが、
   (format *pir-stream* "~a:~%" label))
 
 (defgeneric pir (program &key &allow-other-keys))
+
+(defmethod pir ((self local-assignment) &key)
+  (with-slots (var form) self
+    (let ((value (pir form)))
+      (prt "~a = ~a" (parrot-var var) value))))
+
+(defun prt-intern-symbol (symbol)
+  (let ((package (next-var))
+        (var (next-var))
+        (fun (next-var)))
+    (prt "~a = get_hll_global [ \"CHOCO\" ], \"find_package\"" fun)
+    (prt "~a = ~a(~s)"
+         package fun (package-name (symbol-package symbol)))
+    (prt "~a = ~a.'intern'(~s)" var package (symbol-name symbol))
+    var))
+
+(defmethod pir ((self defvar-form) &key)
+  ;; TOOD これでいいのか？
+  (let* ((symbol (symbol-of self))
+         (value (value-of self))
+         (sym-var (prt-intern-symbol symbol)))
+    (set-info symbol :kind :special)
+    (prt "~a.'specialize'()" sym-var)
+    (prt "~a.'push_dynamic_value'(~a)" sym-var (pir value))
+    sym-var))
 
 (defmethod pir ((self flat-function) &key)
   (with-slots (name arguments body outers lexical-store modifiers) self
@@ -383,14 +453,9 @@ defun は .sub してるだけだが、
     value))
 
 (defmethod pir ((self global-reference) &key)
-  "$P1 = find_symbol('name of var')
-   $P2 = getattribute $P1, 'value'"
-  (let ((symbol (next-var))
-        (value  (next-var)))
-    (prt "~a = find_symbol(\"~a\")"
-         symbol (symbol-name (var-of self)))
+  (let* ((value  (next-var)))
     (prt "~a = getattribute ~a, 'value'"
-         value symbol)
+         value (prt-intern-symbol (var-of self)))
     value))
 
 (defmethod pir ((self constant) &key)
