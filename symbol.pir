@@ -3,6 +3,7 @@
 .sub init :vtable
         .nil
         setattribute self, 'plist', nil
+        setattribute self, 'special-var-p', nil
 .end
 
 .sub get_string :vtable
@@ -17,29 +18,6 @@
 .end
 
 .sub specialize :method
-        $P0 = getattribute self, 'dynamic-values'
-        unless_null $P0, end
-        $P1 = new 'ResizablePMCArray'
-        setattribute self, 'dynamic-values', $P1
-end:
-.end
-
-.sub push_dynamic_value :method
-        .param pmc value
-        $P0 = getattribute self, 'dynamic-values'
-        push $P0, value
-.end
-
-.sub pop_dynamic_value :method
-        $P0 = getattribute self, 'dynamic-values'
-        $P1 = pop $P0
-        .return($P1)
-.end
-
-.sub get_dynamic_value :method
-        $P0 = getattribute self, 'dynamic-values'
-        $I0 = $P0
-        $I0 -= 1
-        $P1 = $P0[$I0]
-        .return($P1)
+        .t
+        setattribute self, 'special-var-p', t
 .end

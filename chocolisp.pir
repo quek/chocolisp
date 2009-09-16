@@ -51,7 +51,7 @@
         addattribute $P0, 'function'
         addattribute $P0, 'plist'
         addattribute $P0, 'package'
-        addattribute $P0, 'dynamic-values'
+        addattribute $P0, 'special-var-p'
 
 
         .local pmc common_lisp_package
@@ -102,6 +102,19 @@ end:
         all_packages = get_hll_global "*all-packages*"
         all_packages[name] = package
         .return(package)
+.end
+
+.sub dynamic_scope_value
+        .param string var
+        .param pmc package
+        .param pmc symol_name
+        $P0 = find_dynamic_lex var
+        unless_null $P0, end
+        $P0 = find_package(package)
+        $P0 = $P0.'intern'(symol_name)
+        $P0 = getattribute $P0, 'value'
+end:
+        .return($P0)
 .end
 
 

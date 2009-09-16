@@ -11,6 +11,9 @@ defun は .sub してるだけだが、
 (load "/tmp/a")
 :LOAD-TOPLEVEL  -> :init
 ってこと？
+
+TODO
+tailcall
 |#
 (declaim (optimize (debug 3) (safety 3)))
 
@@ -390,7 +393,14 @@ defun は .sub してるだけだが、
 (defmethod pir ((self local-assignment) &key)
   (with-slots (var form) self
     (let ((value (pir form)))
-      (prt "~a = ~a" (parrot-var var) value))))
+      (prt "~a = ~a" (parrot-var var) value)
+      value)))
+
+(defmethod pir ((self dynamic-assignment) &key)
+  (with-slots (var form) self
+    (let ((value (pir form)))
+      (prt "store_dynamic_lex '~a', ~a" (parrot-var var) value)
+      value)))
 
 (defun prt-intern-symbol (symbol)
   (let ((package (next-var))
@@ -408,16 +418,12 @@ defun は .sub してるだけだが、
          (value (value-of self))
          (sym-var (prt-intern-symbol symbol)))
     (prt "~a.'specialize'()" sym-var)
-    (prt "~a.'push_dynamic_value'(~a)" sym-var (pir value))
+    (prt "setattribute ~a, 'value', ~a" sym-var (pir value))
     sym-var))
 
 (defun prt-push-dynamic (symbol)
-  (let ((sym-var (prt-intern-symbol symbol)))
-    (prt "~a.'push_dynamic_value'(~a)" sym-var (parrot-var symbol))
-    sym-var))
-
-(defun prt-pop-dynamic (sym-var)
-  (prt "~a.'pop_dynamic_value'()" sym-var))
+  (let ((var (parrot-var symbol)))
+    (prt ".lex '~a', ~a" var var)))
 
 (defmethod pir ((self flat-function) &key)
   (with-slots (name arguments body outers lexical-store modifiers) self
@@ -431,16 +437,14 @@ defun は .sub してるだけだが、
           (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
       (loop for var in arguments
             do (prt ".param pmc ~a" (parrot-var var)))
-      (let ((dynamic-sym-vars (loop for var in arguments
-                                    if (special-var-p var)
-                                      collect (prt-push-dynamic var))))
-        (loop for var in lexical-store
-              do (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
-        (let ((ret (pir body)))
-          (loop for sym-var in dynamic-sym-vars
-                do (prt-pop-dynamic sym-var))
-          (prt ".return(~a)" ret)))
-        (prt-top ".end~%"))))
+      (loop for var in arguments
+            if (special-var-p var)
+              do (prt-push-dynamic var))
+      (loop for var in lexical-store
+            do (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
+      (let ((ret (pir body)))
+        (prt ".return(~a)" ret)))
+    (prt-top ".end~%")))
 
 (defmethod pir :after ((self flat-function) &key)
   (mapc #'pir (inner-functions-of self)))
@@ -460,9 +464,16 @@ defun は .sub してるだけだが、
     value))
 
 (defmethod pir ((self dynamic-reference) &key)
-  (let* ((symbol-var (prt-intern-symbol (var-of self)))
-         (value  (next-var)))
-    (prt "~a = ~a.'get_dynamic_value'()" value symbol-var)
+  (let* ((fun (next-var))
+         (symbol (var-of self))
+         (var (parrot-var symbol))
+         (value (next-var)))
+    (prt "~a = get_hll_global [ \"CHOCO\" ], \"dynamic_scope_value\"" fun)
+    (prt ".local pmc ~a" var)
+    (prt "~a = ~a('~a', ~s, ~s)"
+         value fun var
+         (package-name (symbol-package symbol))
+         (symbol-name symbol))
     value))
 
 (defmethod pir ((self constant) &key)
