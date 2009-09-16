@@ -5,6 +5,7 @@
 (defun foo ()
   (print *x*)
   (let ((*x* "*x* is 702"))
+    (print *x*)
     (bar "百")))
 
 (defun bar (n)

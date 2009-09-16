@@ -32,12 +32,14 @@ end:
 
 .sub pop_dynamic_value :method
         $P0 = getattribute self, 'dynamic-values'
-        $P1 = shift $P0
+        $P1 = pop $P0
         .return($P1)
 .end
 
 .sub get_dynamic_value :method
         $P0 = getattribute self, 'dynamic-values'
-        $P1 = $P0[0]
+        $I0 = $P0
+        $I0 -= 1
+        $P1 = $P0[$I0]
         .return($P1)
 .end
