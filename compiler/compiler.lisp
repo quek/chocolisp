@@ -469,7 +469,6 @@ tailcall
          (var (parrot-var symbol))
          (value (next-var)))
     (prt "~a = get_hll_global [ \"CHOCO\" ], \"dynamic_scope_value\"" fun)
-    (prt ".local pmc ~a" var)
     (prt "~a = ~a('~a', ~s, ~s)"
          value fun var
          (package-name (symbol-package symbol))
