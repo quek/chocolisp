@@ -6,10 +6,14 @@
   (print *x*)
   (let ((*x* "*x* is 702"))
     (print *x*)
-    (bar "百"))
+    (bar "百"
+         (lambda (x)
+           (print "lambda")
+           (print x))))
   (print *x*))
 
-(defun bar (n)
+(defun bar (n f)
+  (funcall f n)
   (print *x*)
   (let ((n 100))
     (setq *x* "*x* is 703")

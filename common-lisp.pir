@@ -44,6 +44,12 @@ LCONS:
         .return($P0)
 .end
 
+.sub 'FUNCALL'
+        .param pmc f
+        .param pmc args :slurpy
+        .tailcall f(args :flat)
+.end
+
 .sub 'PRINT'
         .param pmc x
         say ""

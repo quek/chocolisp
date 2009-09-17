@@ -66,6 +66,9 @@ tailcall
   ((name)
    (values)))
 
+(defclass* extracted-lambda (program)
+  ((name)))
+
 (defclass* assignment (program)
   ((var)
    (form)))
@@ -80,7 +83,7 @@ tailcall
   ())
 
 (defclass* lambda-form (program)
-  ((vars)
+  ((arguments)
    (body)))
 
 (defclass* if-form (program)
@@ -262,8 +265,8 @@ tailcall
 
 (defun objectify-lambda (vars body r d f)
   (make-instance 'lambda-form
-                 :vars vars
-                 :body (objectify body (extend-r r vars) d f)))
+                 :arguments vars
+                 :body (objectify-progn body (extend-r r vars) d f)))
 
 (defun objectify-defun (name lambda-list body r d f)
   (make-instance 'defun-form :name name :arguments lambda-list
@@ -305,9 +308,9 @@ tailcall
           do (progn (push var (lexical-store-of flat-function))
                     (return))))
 
-(defgeneric extract-let (object outers))
+(defgeneric 東京ミュミュ-metamorphose! (object outers))
 
-(defmethod extract-let ((self local-reference) outers)
+(defmethod 東京ミュミュ-metamorphose! ((self local-reference) outers)
   (with-accessors ((var var-of)) self
     (if (member var (arguments-of (car outers)))
         self
@@ -315,22 +318,22 @@ tailcall
           (set-lexical-var var outers)
           self))))
 
-(defmethod extract-let ((self program) outers)
-  (walk-object self #'extract-let outers))
+(defmethod 東京ミュミュ-metamorphose! ((self program) outers)
+  (walk-object self #'東京ミュミュ-metamorphose! outers))
 
-(defmethod extract-let ((self defun-form) outers)
+(defmethod 東京ミュミュ-metamorphose! ((self defun-form) outers)
   (with-accessors ((name name-of) (arguments arguments-of) (body body-of))
       self
     (let* ((flat-function (make-instance 'flat-function
                                          :name name
                                          :arguments arguments))
-           (extracted-body (extract-let body
+           (extracted-body (東京ミュミュ-metamorphose! body
                                         (cons flat-function outers))))
       (setf (body-of flat-function) extracted-body)
       flat-function)))
 
-(defmethod extract-let ((self let-form) outers)
-  (let* ((name (gensym "sub"))
+(defmethod 東京ミュミュ-metamorphose! ((self let-form) outers)
+  (let* ((name (gensym "let"))
          (flat-function (make-instance 'flat-function
                                        :name name
                                        :outers outers
@@ -338,11 +341,24 @@ tailcall
                                        :body nil)))
     (push flat-function (inner-functions-of (car outers)))
     (setf (body-of flat-function)
-          (extract-let (body-of self)
+          (東京ミュミュ-metamorphose! (body-of self)
                        (cons flat-function outers)))
     (make-instance 'extracted-let
                    :name name
                    :values (values-of self))))
+
+(defmethod 東京ミュミュ-metamorphose! ((self lambda-form) outers)
+  (let* ((name (gensym "lambda"))
+         (flat-function (make-instance 'flat-function
+                                       :name name
+                                       :outers outers
+                                       :arguments (arguments-of self)
+                                       :body nil)))
+    (push flat-function (inner-functions-of (car outers)))
+    (setf (body-of flat-function)
+          (東京ミュミュ-metamorphose! (body-of self)
+                                      (cons flat-function outers)))
+    (make-instance 'extracted-lambda :name name)))
 
 
 (defvar *pir-stream* *standard-output*)
@@ -432,8 +448,10 @@ tailcall
           (*sub-stack* (cons name *sub-stack*))
           (modifiers (format nil "~{ ~a~}" modifiers)))
       (if outers
-          (prt-top ".sub ~a :outer('~a')~a"
-                   (parrot-sub-name name) (name-of (car outers)) modifiers)
+          (prt-top ".sub ~a :outer(~a)~a"
+                   (parrot-sub-name name)
+                   (parrot-sub-name (name-of (car outers)))
+                   modifiers)
           (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
       (loop for var in arguments
             do (prt ".param pmc ~a" (parrot-var var)))
@@ -560,6 +578,11 @@ tailcall
     (prt "~a = ~a(~a :flat)" result var args)
     result))
 
+(defmethod pir ((self extracted-lambda) &key)
+  (let ((var (next-var)))
+    (prt ".const 'Sub' ~a = ~a" var (parrot-sub-name (name-of self)))
+    var))
+
 (defmethod pir ((self eval-when-form) &key)
   (with-slots (situations form) self
     (when (member :compile-toplevel situations)
@@ -596,7 +619,8 @@ tailcall
       (let ((*package* *package*))
         (loop for form = (read in nil)
               while form
-              do (let ((object (extract-let (objectify form nil nil nil) nil)))
+              do (let ((object (東京ミュミュ-metamorphose!
+                                (objectify form nil nil nil) nil)))
                    (if (toplevelp object)
                        (pir object)
                        (pir (make-instance
