@@ -404,7 +404,6 @@ tailcall
 
 (defvar *var-counter*)
 (defvar *label-counter*)
-(defvar *sub-stack* nil)
 
 (let (var)
   (defun next-var (&optional (kind "P"))
@@ -484,7 +483,6 @@ tailcall
   (with-slots (name arguments body outers lexical-store modifiers) self
     (let ((*var-counter* 0)
           (*label-counter* 0)
-          (*sub-stack* (cons name *sub-stack*))
           (modifiers (format nil "~{ ~a~}" modifiers)))
       (if outers
           (prt-top ".sub ~a :outer(~a)~a"
