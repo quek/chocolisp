@@ -104,6 +104,10 @@ tailcall
   ((function)
    (arguments)))
 
+(defclass* lambda-application (application)
+  ((lambda)
+   (arguments)))
+
 (defclass* predefined-application (application)
   ((var)
    (arguments)))
@@ -292,6 +296,14 @@ tailcall
       (make-instance 'no-argument)))
 
 (defun objectify-application (fun args r d f)
+  (if (symbolp fun)
+      (objectify-application-symbol fun args r d f)
+      (if (and (consp fun)
+               (eq (car fun) 'lambda))
+          (objectify-application-lambda fun args r d f)
+          (error "~a is not applicable." fun))))
+
+(defun objectify-application-symbol (fun args r d f)
   (let ((fun (if (eq *package* (symbol-package fun))
                  (make-instance 'local-function :symbol fun)
                  (make-instance 'global-function :symbol fun)))
@@ -300,6 +312,17 @@ tailcall
                               collect (objectify arg r d f)))))
     (make-instance 'regular-application
                    :function fun
+                   :arguments objected-args)))
+
+(defun objectify-application-lambda (lambda-form args r d f)
+  (let ((lambda-form (objectify-lambda (cadr lambda-form)
+                                       (cddr lambda-form)
+                                       r d f))
+        (objected-args (make-arguments
+                        (mapcar (lambda (x) (objectify x r d f))
+                                args))))
+    (make-instance 'lambda-application
+                   :lambda lambda-form
                    :arguments objected-args)))
 
 (defun set-lexical-var (var outers)
@@ -359,6 +382,22 @@ tailcall
           (東京ミュミュ-metamorphose! (body-of self)
                                       (cons flat-function outers)))
     (make-instance 'extracted-lambda :name name)))
+
+(defmethod 東京ミュミュ-metamorphose! ((self lambda-application) outers)
+  (let* ((name (gensym "lambda"))
+         (flat-function (make-instance
+                         'flat-function
+                         :name name
+                         :outers outers
+                         :arguments (arguments-of (lambda-of self))
+                         :body nil)))
+    (push flat-function (inner-functions-of (car outers)))
+    (setf (body-of flat-function)
+          (東京ミュミュ-metamorphose! (body-of (lambda-of self))
+                                      (cons flat-function outers)))
+    (make-instance 'regular-application
+                   :function (make-instance 'local-function :symbol name)
+                   :arguments (arguments-of self))))
 
 
 (defvar *pir-stream* *standard-output*)
