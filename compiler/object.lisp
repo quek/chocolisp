@@ -1,4 +1,4 @@
-(defun make-var (vars)
+(defun make-vars (vars)
   (if (null vars)
       nil
       (cons (cons (car vars) (cadr vars))
@@ -51,7 +51,15 @@
                              (funcall (car args) :get :arguments))
                      self
                      (progn
-                       (make-lexical-var var)))))))))
+                       (make-lexical-var var))))
+              (t (apply super message args)))))))
+
+(defun make-lexical-var (var)
+  (let ((super (make-program :var var))
+        self)
+    (setq self (lambda (message &rest args)
+                 (case message
+                   (t (apply super message args)))))))
 
 (let ((x (make-program :name "foo" :args '(x y))))
   (list
