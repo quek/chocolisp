@@ -56,11 +56,15 @@ tailcall
    (arguments)
    (body)))
 
+(defclass* defmacro-form (defun-form) ())
+
 (defclass* flat-function (defun-form)
   ((inner-functions nil)
    (lexical-store nil)
    (outers nil)
    (modifiers nil)))
+
+(defclass* flat-macro-function (flat-function) ())
 
 (defclass* extracted-let (program)
   ((name)
@@ -177,13 +181,15 @@ tailcall
             )
         (labels
             )
-        (defun
-            (objectify-defun (cadr form) (caddr form) (cdddr form) r d f))
-        (in-package
-           (objectify-in-package (cadr form)))
         (eval-when
             (objectify-eval-when (cadr form) (cddr form) r d f))
-        (defvar
+        (chimacho::defun
+            (objectify-defun (cadr form) (caddr form) (cdddr form) r d f))
+        (chimacho::defmacro
+            (objectify-defmacro (cadr form) (caddr form) (cdddr form) r d f))
+        (chimacho::in-package
+           (objectify-in-package (cadr form)))
+        (chimacho::defvar
             (objectify-defvar (cadr form) (caddr form) r d f))
         (t (objectify-application (car form) (cdr form) r d f)))))
 
@@ -203,6 +209,9 @@ tailcall
 
 (defun special-var-p (symbol)
   (eq (cdr (get-info symbol :kind)) :special))
+
+(defun macro-function-p (symbol)
+  (cdr (get-info symbol :macro-function)))
 
 (defun var-kind (var r d f)
   (declare (ignore d f))
@@ -276,6 +285,10 @@ tailcall
   (make-instance 'defun-form :name name :arguments lambda-list
                  :body (objectify-progn body (extend-r r lambda-list) d f)))
 
+(defun objectify-defmacro (name lambda-list body r d f)
+  (make-instance 'defmacro-form :name name :arguments lambda-list
+                 :body (objectify-progn body (extend-r r lambda-list) d f)))
+
 (defun objectify-progn (body r d f)
   (if (null body)
       (make-instance 'constant :value nil)
@@ -345,13 +358,23 @@ tailcall
   (walk-object self #'東京ミュミュ-metamorphose! outers))
 
 (defmethod 東京ミュミュ-metamorphose! ((self defun-form) outers)
-  (with-accessors ((name name-of) (arguments arguments-of) (body body-of))
+  (with-slots (name arguments body) self
       self
     (let* ((flat-function (make-instance 'flat-function
                                          :name name
                                          :arguments arguments))
-           (extracted-body (東京ミュミュ-metamorphose! body
-                                        (cons flat-function outers))))
+           (extracted-body (東京ミュミュ-metamorphose!
+                            body (cons flat-function outers))))
+      (setf (body-of flat-function) extracted-body)
+      flat-function)))
+
+(defmethod 東京ミュミュ-metamorphose! ((self defmacro-form) outers)
+  (with-slots (name arguments body) self
+    (let* ((flat-function (make-instance 'flat-macro-function
+                                         :name name
+                                         :arguments arguments))
+           (extracted-body (東京ミュミュ-metamorphose!
+                            body (cons flat-function outers))))
       (setf (body-of flat-function) extracted-body)
       flat-function)))
 
@@ -442,6 +465,11 @@ tailcall
 (defun prt-label (label)
   (format *pir-stream* "~a:~%" label))
 
+(defun prt-nil ()
+  (let ((var (next-var)))
+    (prt "~a = get_hll_global \"NIL\"" var)
+    var))
+
 (defgeneric pir (program &key &allow-other-keys))
 
 (defmethod pir ((self local-assignment) &key)
@@ -504,9 +532,13 @@ tailcall
 (defmethod pir :after ((self flat-function) &key)
   (mapc #'pir (inner-functions-of self)))
 
+(defmethod pir :after ((self flat-macro-function) &key)
+  (with-slots (name) self
+    (set-info name :macro-function t)))
+
 (defmethod pir ((self in-package-form) &key)
   (prt-top ".namespace [ ~s ]~%" (name-of self))
-  (setf *package* (find-package (name-of self))))
+  (setq *package* (find-package (name-of self))))
 
 (defmethod pir ((self local-reference) &key)
   (let ((value (next-var)))
@@ -543,12 +575,10 @@ tailcall
     var))
 
 (defmethod pir ((self if-form) &key)
-  (let ((test (next-var "I"))
-        (result (next-var))
+  (let ((result (next-var))
         (else-label (next-label "ELSE"))
         (end-label (next-label "ENDIF")))
-    (prt "~a = 'nullp'(~a)" test (pir (test-of self)))
-    (prt "if ~a goto ~a" test else-label)
+    (prt "eq_addr ~a, ~a, ~a" (prt-nil) (pir (test-of self)) else-label)
     (prt "~a = ~a" result (pir (then-of self)))
     (prt "goto ~a" end-label)
     (prt-label else-label)
@@ -648,6 +678,12 @@ tailcall
   (compile-lisp-to-pir file pir-file)
   (compile-pir-to-pbc pir-file pbc-file))
 
+(defun %macroexpand (form)
+  (let ((expanded-form (macroexpand-1 form)))
+    (if (eq expanded-form form)
+        form
+        (%macroexpand expanded-form))))
+
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (with-open-file (in lisp-file)
     (with-open-file (*pir-stream* pir-file :direction :output
@@ -656,8 +692,9 @@ tailcall
       (let ((*package* *package*))
         (loop for form = (read in nil)
               while form
-              do (let ((object (東京ミュミュ-metamorphose!
-                                (objectify form nil nil nil) nil)))
+              do (let* ((expanded-form (print (%macroexpand form)))
+                        (object (東京ミュミュ-metamorphose!
+                                (objectify expanded-form nil nil nil) nil)))
                    (if (toplevelp object)
                        (pir object)
                        (pir (make-instance

@@ -44,6 +44,16 @@ LCONS:
         .return($P0)
 .end
 
+.sub 'NULL'
+        .param pmc x
+        .nil
+        eq_addr x, nil, true
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
 .sub 'FUNCALL'
         .param pmc f
         .param pmc args :slurpy
@@ -55,4 +65,14 @@ LCONS:
         say ""
         print x
         print " "
+        .return(x)
+.end
+
+.sub 'ASSERT'
+        .param pmc x
+        .nil
+        eq_addr x, nil, failed
+        .return(nil)
+failed:
+        die "Assertion failed."
 .end

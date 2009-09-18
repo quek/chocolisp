@@ -61,17 +61,22 @@
         nil = common_lisp_package.'intern'("NIL")
         common_lisp_package.'export'(nil)
         setattribute nil, 'value', nil
-        set_global "NIL", nil
+        set_hll_global "NIL", nil
 
         .local pmc t
         t = common_lisp_package.'intern'("T")
         common_lisp_package.'export'(t)
         setattribute t, 'value', t
-        set_global "T", t
+        set_hll_global "T", t
 
         .local pmc cl_user, use_list
         cl_user = make_package("COMMON-LISP-USER", "CL-USER")
         use_list = getattribute cl_user, 'use-list'
+        push use_list, common_lisp_package
+
+        .local pmc chimacho
+        chimacho = make_package("CHIMACHO")
+        use_list = getattribute chimacho, 'use-list'
         push use_list, common_lisp_package
 .end
 

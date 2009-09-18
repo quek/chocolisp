@@ -1,4 +1,4 @@
-(in-package "COMMON-LISP-USER")
+(chimacho::in-package "CHIMACHO")
 
 (defvar *x* "*x* is 701")
 
@@ -24,5 +24,10 @@
   (print n)
   (print *x*))
 
-(foo)
+(defmacro unless (test form)
+  (list 'if test form))
+
+(unless nil
+  (foo))
+
 (print "ok")
