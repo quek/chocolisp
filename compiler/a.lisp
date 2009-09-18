@@ -7,7 +7,7 @@
   (print *x*)
   (let ((*x* "*x* is 702"))
     (print *x*)
-    (bar "百"
+    (bar '(hello "百")
          (lambda (x)
            (print "lambda")
            (print x))))

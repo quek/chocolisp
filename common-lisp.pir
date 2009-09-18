@@ -7,6 +7,12 @@
 .sub '' :anon :load :init
 .end
 
+.sub 'CONS'
+        .param pmc car
+        .param pmc cdr
+        .tailcall cons(car, cdr)
+.end
+
 .sub 'CAR'
         .param pmc cons
         $I0 = isa cons, ["CHOCO";"CONS"]
@@ -32,15 +38,6 @@ LNIL:
         .return(nil)
 LCONS:
         $P0 = getattribute cons, 'cdr'
-        .return($P0)
-.end
-
-.sub 'CONS'
-        .param pmc car
-        .param pmc cdr
-        $P0 = new ["CHOCO";"CONS"]
-        setattribute $P0, 'car', car
-        setattribute $P0, 'cdr', cdr
         .return($P0)
 .end
 

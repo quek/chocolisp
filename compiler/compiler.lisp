@@ -165,6 +165,8 @@ tailcall
           (objectify-reference form r d f)
           (objectify-quotation form))
       (case (car form)
+        (quote
+           (objectify-quotation (cadr form)))
         (if
             (objectify-if (cadr form) (caddr form) (cadddr form)
                           r d f))
@@ -465,7 +467,7 @@ tailcall
 (defun prt-label (label)
   (format *pir-stream* "~a:~%" label))
 
-(defun prt-nil ()
+(defun pir-nil ()
   (let ((var (next-var)))
     (prt "~a = get_hll_global \"NIL\"" var)
     var))
@@ -486,11 +488,9 @@ tailcall
 
 (defun prt-intern-symbol (symbol)
   (let ((package (next-var))
-        (var (next-var))
-        (fun (next-var)))
-    (prt "~a = get_hll_global [ \"CHOCO\" ], \"find_package\"" fun)
-    (prt "~a = ~a(~s)"
-         package fun (package-name (symbol-package symbol)))
+        (var (next-var)))
+    (prt "~a = find_package(~s)"
+         package (package-name (symbol-package symbol)))
     (prt "~a = ~a.'intern'(~s)" var package (symbol-name symbol))
     var))
 
@@ -551,34 +551,53 @@ tailcall
     value))
 
 (defmethod pir ((self dynamic-reference) &key)
-  (let* ((fun (next-var))
-         (symbol (var-of self))
+  (let* ((symbol (var-of self))
          (var (parrot-var symbol))
          (value (next-var)))
-    (prt "~a = get_hll_global [ \"CHOCO\" ], \"dynamic_scope_value\"" fun)
-    (prt "~a = ~a('~a', ~s, ~s)"
-         value fun var
+    (prt "~a = dynamic_scope_value('~a', ~s, ~s)"
+         value
+         var
          (package-name (symbol-package symbol))
          (symbol-name symbol))
     value))
 
-(defmethod pir ((self constant) &key)
-  (let ((var (next-var))
-        (value (value-of self)))
-    (typecase value
-      (integer
-         (prt "~a = new ~s" var "Integer")
-         (prt "~a = ~s" var value))
-      (string
-         (prt "~a = new ~s" var "String")
-         (prt "~a = utf8:unicode:~s" var value)))
+(defun pir-constant (value)
+  (if (atom value)
+      (pir-atom value)
+      (pir-cons value)))
+
+(defun pir-cons (cons)
+  (let ((var (next-var)))
+    (prt "~a = cons(~a, ~a)"
+         var (pir-constant (car cons)) (pir-constant (cdr cons)))
     var))
+
+(defun pir-symbol (symbol)
+  (prt-intern-symbol symbol))
+
+(defun pir-atom (atom)
+  (etypecase atom
+    (integer
+       (let ((var (next-var)))
+         (prt "~a = new ~s" var "Integer")
+         (prt "~a = ~s" var atom)
+         var))
+    (string
+       (let ((var (next-var)))
+         (prt "~a = new ~s" var "String")
+         (prt "~a = utf8:unicode:~s" var atom)
+         var))
+    (symbol
+       (pir-symbol atom))))
+
+(defmethod pir ((self constant) &key)
+  (pir-constant (value-of self)))
 
 (defmethod pir ((self if-form) &key)
   (let ((result (next-var))
         (else-label (next-label "ELSE"))
         (end-label (next-label "ENDIF")))
-    (prt "eq_addr ~a, ~a, ~a" (prt-nil) (pir (test-of self)) else-label)
+    (prt "eq_addr ~a, ~a, ~a" (pir-nil) (pir (test-of self)) else-label)
     (prt "~a = ~a" result (pir (then-of self)))
     (prt "goto ~a" end-label)
     (prt-label else-label)

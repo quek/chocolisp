@@ -3,17 +3,68 @@
 .include "parrot-macro.pir"
 .include "package.pir"
 .include "symbol.pir"
+.include "cons.pir"
+
+
+.namespace []
+
+.sub cons
+        .param pmc car
+        .param pmc cdr
+        $P0 = new ["CHOCO";"CONS"]
+        setattribute $P0, 'car', car
+        setattribute $P0, 'cdr', cdr
+        .return($P0)
+.end
+
+.sub find_package
+        .param pmc name
+        .local pmc all_packages
+        all_packages = get_hll_global "*all-packages*"
+        $P0 = all_packages[name]
+        .return($P0)
+.end
+
+.sub make_package
+        .param pmc name
+        .param pmc nicknames :slurpy
+        .local pmc package, nicknames
+        package = new ["CHOCO";"PACKAGE"]
+        package = "COMMON-LISP"
+        $P0 = getattribute package, 'nick-names'
+        $P1 = iter nicknames
+loop:
+        unless $P1 goto end
+        $P2 = shift $P1
+        push $P0, $P2
+        goto loop
+end:
+        .local pmc all_packages
+        all_packages = get_hll_global "*all-packages*"
+        all_packages[name] = package
+        .return(package)
+.end
+
+.sub dynamic_scope_value
+        .param string var
+        .param pmc package
+        .param pmc symol_name
+        $P0 = find_dynamic_lex var
+        unless_null $P0, end
+        $P0 = find_package(package)
+        $P0 = $P0.'intern'(symol_name)
+        $P0 = getattribute $P0, 'value'
+end:
+        .return($P0)
+.end
 
 .namespace [ "CHOCO" ]
 
 .sub main :main
         .t
         .nil
-        say t
-        say nil
 
-        $P0 = get_hll_global [ "COMMON-LISP" ], "CONS"
-        $P1 = $P0("car value", "cdr value")
+        $P1 =  cons("car value", "cdr value")
         $P0 = get_hll_global [ "COMMON-LISP" ], "CAR"
         $P1 = $P0($P1)
         say $P1
@@ -81,46 +132,5 @@
 .end
 
 ## TODO nickname
-.sub find_package
-        .param pmc name
-        .local pmc all_packages
-        all_packages = get_hll_global "*all-packages*"
-        $P0 = all_packages[name]
-        .return($P0)
-.end
-
-.sub make_package
-        .param pmc name
-        .param pmc nicknames :slurpy
-        .local pmc package, nicknames
-        package = new ["CHOCO";"PACKAGE"]
-        package = "COMMON-LISP"
-        $P0 = getattribute package, 'nick-names'
-        $P1 = iter nicknames
-loop:
-        unless $P1 goto end
-        $P2 = shift $P1
-        push $P0, $P2
-        goto loop
-end:
-        .local pmc all_packages
-        all_packages = get_hll_global "*all-packages*"
-        all_packages[name] = package
-        .return(package)
-.end
-
-.sub dynamic_scope_value
-        .param string var
-        .param pmc package
-        .param pmc symol_name
-        $P0 = find_dynamic_lex var
-        unless_null $P0, end
-        $P0 = find_package(package)
-        $P0 = $P0.'intern'(symol_name)
-        $P0 = getattribute $P0, 'value'
-end:
-        .return($P0)
-.end
-
 
 .include "common-lisp.pir"
