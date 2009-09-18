@@ -3,7 +3,8 @@
 (defvar *x* "*x* is 701")
 
 (defun foo ()
-  ((lambda (x) (print x)) "start foo...")
+  (is ((lambda (x) (print x)) "start foo...")
+      "start foo...")
   (print *x*)
   (let ((*x* "*x* is 702"))
     (print *x*)

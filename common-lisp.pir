@@ -57,19 +57,44 @@ true:
         .tailcall f(args :flat)
 .end
 
+.sub 'EQ'
+        .param pmc x
+        .param pmc y
+        eq_addr x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub '='
+        .param pmc x
+        .param pmc y
+        eq_num x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'STRING='
+        .param pmc x
+        .param pmc y
+        eq_str x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+
 .sub 'PRINT'
         .param pmc x
         say ""
         print x
         print " "
         .return(x)
-.end
-
-.sub 'ASSERT'
-        .param pmc x
-        .nil
-        eq_addr x, nil, failed
-        .return(nil)
-failed:
-        die "Assertion failed."
 .end

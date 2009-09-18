@@ -4,7 +4,7 @@
 .include "package.pir"
 .include "symbol.pir"
 .include "cons.pir"
-
+.include "chimacho.pir"
 
 .namespace []
 
