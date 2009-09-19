@@ -301,6 +301,7 @@ tailcall
                  :body (objectify-progn body (extend-r r lambda-list) d f)))
 
 (defun objectify-defmacro (name lambda-list body r d f)
+  (set-info name :macro-function t)
   (make-instance 'defmacro-form
                  :name name
                  :lambda-list lambda-list
@@ -570,10 +571,6 @@ tailcall
 
 (defmethod pir :after ((self flat-function) &key)
   (mapc #'pir (inner-functions-of self)))
-
-(defmethod pir :after ((self flat-macro-function) &key)
-  (with-slots (name) self
-    (set-info name :macro-function t)))
 
 (defmethod pir ((self in-package-form) &key)
   (prt-top ".namespace [ ~s ]~%" (name-of self))
