@@ -379,7 +379,6 @@ tailcall
 
 (defmethod 東京ミュミュ-metamorphose! ((self defun-form) outers)
   (with-slots (name lambda-list arguments body) self
-      self
     (let* ((flat-function (make-instance 'flat-function
                                          :name name
                                          :lambda-list lambda-list
