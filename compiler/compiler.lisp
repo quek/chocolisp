@@ -269,16 +269,19 @@ tailcall
                  :else (objectify else r d f)))
 
 (defun objectify-let (bindings body r d f)
-  (loop for bind in bindings
-        for (var form) = (if (atom bind) (cons bind nil) bind)
-        collect var into vars
-        collect (objectify form r d f) into values
-        finally (return
-                  (make-instance
-                   'let-form
+  (let* ((bindings (mapcar (lambda (x)
+                            (if (atom x)
+                                (cons x nil)
+                                x))
+                          bindings))
+         (vars (mapcar #'car bindings))
+         (values (mapcar (lambda (x)
+                           (objectify (cadr x) r d f))
+                         bindings)))
+    (make-instance 'let-form
                    :vars vars
                    :values values
-                   :body (objectify-progn body (extend-r r vars) d f)))))
+                   :body (objectify-progn body (extend-r r vars) d f))))
 
 (defun objectify-lambda (vars body r d f)
   (make-instance 'lambda-form
@@ -342,8 +345,9 @@ tailcall
                  (make-instance 'local-function :symbol fun)
                  (make-instance 'global-function :symbol fun)))
         (objected-args (make-arguments
-                        (loop for arg in args
-                              collect (objectify arg r d f)))))
+                        (mapcar (lambda (x)
+                                  (objectify x r d f))
+                                args))))
     (make-instance 'regular-application
                    :function fun
                    :arguments objected-args)))
@@ -360,10 +364,11 @@ tailcall
                    :arguments objected-args)))
 
 (defun set-lexical-var (var outers)
-  (loop for flat-function in outers
-        if (member var (arguments-of flat-function))
-          do (progn (push var (lexical-store-of flat-function))
-                    (return))))
+  (if (null outers)
+      nil
+      (if (member var (arguments-of (car outers)))
+          (push var (lexical-store-of (car outers)))
+          (set-lexical-var var (cdr outers)))))
 
 (defgeneric 東京ミュミュ-metamorphose! (object outers))
 
@@ -471,11 +476,11 @@ tailcall
 (defun parrot-var (lisp-var)
   (with-output-to-string (out)
     (write-string "p_" out)
-    (loop for c across (format nil  "~s" lisp-var)
-          if (alpha-char-p c)
-            do (write-char c out)
-          else
-            do (princ (char-code c) out))))
+    (map nil (lambda (c)
+               (if (alpha-char-p c)
+                   (write-char c out)
+                   (princ (char-code c) out)))
+         (format nil "~s" lisp-var))))
 
 (defun parrot-sub-name (symbol)
   (if (symbol-package symbol)
@@ -559,11 +564,13 @@ tailcall
                    modifiers)
           (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
       (pir-lambda-list lambda-list)
-      (loop for var in arguments
-            if (special-var-p var)
-              do (prt-push-dynamic var))
-      (loop for var in lexical-store
-            do (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
+      (mapc (lambda (var)
+              (if (special-var-p var)
+                  (prt-push-dynamic var)))
+            arguments)
+      (mapc (lambda (var)
+              (prt ".lex '~a', ~a" (parrot-var var) (parrot-var var)))
+            lexical-store)
       (let ((ret (pir body)))
         (prt ".return(~a)" ret)))
     (prt-top ".end~%")))
@@ -743,26 +750,30 @@ tailcall
         form
         (%macroexpand expanded-form))))
 
+(defun read-loop (in)
+  (let ((form (read in nil)))
+    (when form
+      (let* ((expanded-form (print (%macroexpand form)))
+             (object (東京ミュミュ-metamorphose!
+                      (objectify expanded-form nil nil nil) nil)))
+        (if (toplevelp object)
+            (pir object)
+            (pir (make-instance
+                  'flat-function
+                  :name (gensym "init")
+                  :lambda-list nil
+                  :arguments nil
+                  :body object
+                  :modifiers '(":anon" ":init" ":load")))))
+      (read-loop in))))
+
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (with-open-file (in lisp-file)
     (with-open-file (*pir-stream* pir-file :direction :output
                                   :if-exists :supersede)
       (put-common-header)
       (let ((*package* *package*))
-        (loop for form = (read in nil)
-              while form
-              do (let* ((expanded-form (print (%macroexpand form)))
-                        (object (東京ミュミュ-metamorphose!
-                                (objectify expanded-form nil nil nil) nil)))
-                   (if (toplevelp object)
-                       (pir object)
-                       (pir (make-instance
-                             'flat-function
-                             :name (gensym "init")
-                             :lambda-list nil
-                             :arguments nil
-                             :body object
-                             :modifiers '(":anon" ":init" ":load"))))))))))
+        (read-loop in)))))
 
 (defun compile-pir-to-pbc (pir-file pbc-file)
   (sb-ext:run-program "parrot"
