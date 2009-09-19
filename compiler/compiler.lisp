@@ -319,11 +319,11 @@ tailcall
 (defun objectify-in-package (name)
   (make-instance 'in-package-form :name name))
 
-(defun make-arguments (args)
+(defun list-to-arguments (args)
   (if args
       (make-instance 'arguments
                      :first (car args)
-                     :others (make-arguments (cdr args)))
+                     :others (list-to-arguments (cdr args)))
       (make-instance 'no-argument)))
 
 (defun objectify-application (fun args r d f)
@@ -338,7 +338,7 @@ tailcall
   (let ((fun (if (eq *package* (symbol-package fun))
                  (make-instance 'local-function :symbol fun)
                  (make-instance 'global-function :symbol fun)))
-        (objected-args (make-arguments
+        (objected-args (list-to-arguments
                         (mapcar (lambda (x)
                                   (objectify x r d f))
                                 args))))
@@ -350,7 +350,7 @@ tailcall
   (let ((lambda-form (objectify-lambda (cadr lambda-form)
                                        (cddr lambda-form)
                                        r d f))
-        (objected-args (make-arguments
+        (objected-args (list-to-arguments
                         (mapcar (lambda (x) (objectify x r d f))
                                 args))))
     (make-instance 'lambda-application
