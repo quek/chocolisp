@@ -492,7 +492,7 @@ tailcall
 (defun prt-label (label)
   (format *pir-stream* "~a:~%" label))
 
-(defun pir-nil ()
+(defun prt-nil ()
   (let ((var (next-var)))
     (prt "~a = get_hll_global \"NIL\"" var)
     var))
@@ -637,7 +637,7 @@ tailcall
   (let ((result (next-var))
         (else-label (next-label "ELSE"))
         (end-label (next-label "ENDIF")))
-    (prt "eq_addr ~a, ~a, ~a" (pir-nil) (pir (test-of self)) else-label)
+    (prt "eq_addr ~a, ~a, ~a" (prt-nil) (pir (test-of self)) else-label)
     (prt "~a = ~a" result (pir (then-of self)))
     (prt "goto ~a" end-label)
     (prt-label else-label)
@@ -678,19 +678,6 @@ tailcall
 
 (defmethod pir ((self no-argument) &key array)
   array)
-
-(defmethod pir ((self let-form) &key)
-  (let ((sub-name (gensym "sub"))
-        (sub (next-var))
-        (args (next-var))
-        (result (next-var)))
-    (prt ".const 'Sub' ~a = '~s'" sub (parrot-sub-name sub-name))
-    (prt "~a = new 'ResizablePMCArray'" args)
-    (mapc (lambda (arg)
-            (prt "push ~a, ~a" args (pir arg)))
-          (values-of self))
-    (prt "~a = ~a(~a :flat)" result sub args)
-    result))
 
 (defmethod pir ((self extracted-let) &key)
   (let ((var (next-var))
