@@ -5,9 +5,9 @@
 (defun foo ()
   (is ((lambda (x) (print x)) "start foo...")
       "start foo...")
-  (print *x*)
+  (is "*x* is 701" (print *x*))
   (let ((*x* "*x* is 702"))
-    (print *x*)
+    (is (print *x*) "*x* is 702")
     (bar '(hello "百")
          (lambda (x)
            (print "lambda")
@@ -26,7 +26,7 @@
   (print *x*))
 
 (defmacro unless (test form)
-  (list 'if test form))
+  (list 'if test (cons 'progn form)))
 
 (unless nil
   (foo))
