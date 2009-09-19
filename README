@@ -1,6 +1,12 @@
-ちょこっと Lisp でも作ってみようか。
+#title ちょこっと Lisp でも作ってみようか。
 
 『Lisp in Small Pieces』
 
-sub のメモリ
-再定義でどうなるか。
+* TODO
+
+ - 末尾再帰
+ - sub のメモリ。再定義でどうなるか。
+
+; local variables:
+; mode: muse
+; end:

@@ -53,6 +53,7 @@ tailcall
 
 (defclass* defun-form (program)
   ((name)
+   (lambda-list)
    (arguments)
    (body)))
 
@@ -87,7 +88,8 @@ tailcall
   ())
 
 (defclass* lambda-form (program)
-  ((arguments)
+  ((lambda-list)
+   (arguments)
    (body)))
 
 (defclass* if-form (program)
@@ -280,15 +282,32 @@ tailcall
 
 (defun objectify-lambda (vars body r d f)
   (make-instance 'lambda-form
-                 :arguments vars
+                 :lambda-list vars
+                 :arguments (parse-lambda-list vars)
                  :body (objectify-progn body (extend-r r vars) d f)))
 
+(defun parse-lambda-list (x)
+  (if (null x)
+      nil
+      (case (car x)
+        ((&rest &key &optional &allow-other-keys &body &whole)
+           (parse-lambda-list (cdr x)))
+        (t (if (keywordp (car x))
+               (parse-lambda-list (cdr x))
+               (cons (car x) (parse-lambda-list (cdr x))))))))
+
 (defun objectify-defun (name lambda-list body r d f)
-  (make-instance 'defun-form :name name :arguments lambda-list
+  (make-instance 'defun-form
+                 :name name
+                 :lambda-list lambda-list
+                 :arguments (parse-lambda-list lambda-list)
                  :body (objectify-progn body (extend-r r lambda-list) d f)))
 
 (defun objectify-defmacro (name lambda-list body r d f)
-  (make-instance 'defmacro-form :name name :arguments lambda-list
+  (make-instance 'defmacro-form
+                 :name name
+                 :lambda-list lambda-list
+                 :arguments (parse-lambda-list lambda-list)
                  :body (objectify-progn body (extend-r r lambda-list) d f)))
 
 (defun objectify-progn (body r d f)
@@ -360,10 +379,11 @@ tailcall
   (walk-object self #'東京ミュミュ-metamorphose! outers))
 
 (defmethod 東京ミュミュ-metamorphose! ((self defun-form) outers)
-  (with-slots (name arguments body) self
+  (with-slots (name lambda-list arguments body) self
       self
     (let* ((flat-function (make-instance 'flat-function
                                          :name name
+                                         :lambda-list lambda-list
                                          :arguments arguments))
            (extracted-body (東京ミュミュ-metamorphose!
                             body (cons flat-function outers))))
@@ -371,9 +391,10 @@ tailcall
       flat-function)))
 
 (defmethod 東京ミュミュ-metamorphose! ((self defmacro-form) outers)
-  (with-slots (name arguments body) self
+  (with-slots (name lambda-list arguments body) self
     (let* ((flat-function (make-instance 'flat-macro-function
                                          :name name
+                                         :lambda-list lambda-list
                                          :arguments arguments))
            (extracted-body (東京ミュミュ-metamorphose!
                             body (cons flat-function outers))))
@@ -385,6 +406,7 @@ tailcall
          (flat-function (make-instance 'flat-function
                                        :name name
                                        :outers outers
+                                       :lambda-list (vars-of self)
                                        :arguments (vars-of self)
                                        :body nil)))
     (push flat-function (inner-functions-of (car outers)))
@@ -397,11 +419,13 @@ tailcall
 
 (defmethod 東京ミュミュ-metamorphose! ((self lambda-form) outers)
   (let* ((name (gensym "lambda"))
-         (flat-function (make-instance 'flat-function
-                                       :name name
-                                       :outers outers
-                                       :arguments (arguments-of self)
-                                       :body nil)))
+         (flat-function
+          (make-instance 'flat-function
+                         :name name
+                         :outers outers
+                         :lambda-list (lambda-list-of self)
+                         :arguments (arguments-of self)
+                         :body nil)))
     (push flat-function (inner-functions-of (car outers)))
     (setf (body-of flat-function)
           (東京ミュミュ-metamorphose! (body-of self)
@@ -410,12 +434,14 @@ tailcall
 
 (defmethod 東京ミュミュ-metamorphose! ((self lambda-application) outers)
   (let* ((name (gensym "lambda"))
-         (flat-function (make-instance
-                         'flat-function
-                         :name name
-                         :outers outers
-                         :arguments (arguments-of (lambda-of self))
-                         :body nil)))
+         (flat-function
+          (make-instance
+           'flat-function
+           :name name
+           :outers outers
+           :lambda-list (lambda-list-of (lambda-of self))
+           :arguments (arguments-of (lambda-of self))
+           :body nil)))
     (push flat-function (inner-functions-of (car outers)))
     (setf (body-of flat-function)
           (東京ミュミュ-metamorphose! (body-of (lambda-of self))
@@ -507,8 +533,22 @@ tailcall
   (let ((var (parrot-var symbol)))
     (prt ".lex '~a', ~a" var var)))
 
+(defun pir-lambda-list (lambda-list)
+  (if (null lambda-list)
+      nil
+      (if (eq (car lambda-list) '&rest)
+          (progn
+            (let ((var (parrot-var (cadr lambda-list))))
+              (prt ".param pmc ~a :slurpy" var)
+              (pir-lambda-list (cddr lambda-list))
+              (prt "~a = array_to_list(~a)" var var)))
+          (progn
+            (prt ".param pmc ~a" (parrot-var (car lambda-list)))
+            (pir-lambda-list (cdr lambda-list))))))
+
 (defmethod pir ((self flat-function) &key)
-  (with-slots (name arguments body outers lexical-store modifiers) self
+  (with-slots (name lambda-list arguments body outers lexical-store modifiers)
+      self
     (let ((*var-counter* 0)
           (*label-counter* 0)
           (modifiers (format nil "~{ ~a~}" modifiers)))
@@ -518,8 +558,7 @@ tailcall
                    (parrot-sub-name (name-of (car outers)))
                    modifiers)
           (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
-      (loop for var in arguments
-            do (prt ".param pmc ~a" (parrot-var var)))
+      (pir-lambda-list lambda-list)
       (loop for var in arguments
             if (special-var-p var)
               do (prt-push-dynamic var))
@@ -682,6 +721,7 @@ tailcall
         (pir (make-instance
               'flat-function
               :name (gensym "init")
+              :lambda-list nil
               :arguments nil
               :body form
               :modifiers `(":anon" ,@modifiers)))))))
@@ -719,6 +759,7 @@ tailcall
                        (pir (make-instance
                              'flat-function
                              :name (gensym "init")
+                             :lambda-list nil
                              :arguments nil
                              :body object
                              :modifiers '(":anon" ":init" ":load"))))))))))

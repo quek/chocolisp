@@ -31,4 +31,9 @@
 (unless nil
   (foo))
 
+(defun my-list (&rest list)
+  list)
+
+(print (my-list 11 22 33 44 55))
+
 (print "ok")

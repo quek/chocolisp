@@ -17,6 +17,20 @@
         .return($P0)
 .end
 
+.sub array_to_list
+        .param pmc array
+        .nil
+        $P0 = nil
+loop:
+        $I0 = array
+        eq_num 0, $I0, end
+        $P1 = pop array
+        $P0 = cons($P1, $P0)
+        goto loop
+end:
+        .return($P0)
+.end
+
 .sub find_package
         .param pmc name
         .local pmc all_packages
