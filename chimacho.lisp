@@ -20,5 +20,5 @@
   whole)
 
 (cl:defmacro in-package (&whole whole string-designator)
-  (declare (ignore rest))
+  (declare (ignore string-designator))
   whole)

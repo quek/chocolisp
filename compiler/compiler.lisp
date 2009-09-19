@@ -31,14 +31,6 @@ tailcall
 
 (defclass* program (object) ())
 
-(defclass* eval-when-form (program)
-  ((situations)
-   (form)))
-
-(defclass* defvar-form (program)
-  ((symbol)
-   (value)))
-
 (defclass* reference (program)
   ((var)))
 
@@ -48,8 +40,73 @@ tailcall
 
 (defclass* dynamic-reference (reference) ())
 
+(defclass* assignment (program)
+  ((var)
+   (form)))
+
+(defclass* local-assignment (assignment)
+  ())
+
+(defclass* lexical-assignment (assignment)
+  ())
+
+(defclass* dynamic-assignment (assignment)
+  ())
+
+(defclass* constant (program)
+  ((value)))
+
+(defclass* if-form (program)
+  ((test)
+   (then)
+   (else)))
+
+(defclass* progn-form (program)
+  ((first)
+   (last)))
+
+(defclass* let-form (program)
+  ((vars)
+   (values)
+   (body)))
+
+(defclass* lambda-form (program)
+  ((lambda-list)
+   (arguments)
+   (body)))
+
+(defclass* application (program)
+  ((arguments)))
+
+(defclass* regular-application (application)
+  ((function)))
+
+(defclass* lambda-application (application)
+  ((lambda)))
+
+(defclass* arguments (program)
+  ((first)
+   (others)))
+
+(defclass* no-argument (program) ())
+
+(defclass* abstract-function ()
+  ((symbol)))
+
+(defclass* local-function (abstract-function) ())
+
+(defclass* global-function (abstract-function) ())
+
 (defclass* in-package-form (program)
   ((name)))
+
+(defclass* eval-when-form (program)
+  ((situations)
+   (form)))
+
+(defclass* defvar-form (program)
+  ((symbol)
+   (value)))
 
 (defclass* defun-form (program)
   ((name)
@@ -73,69 +130,6 @@ tailcall
 
 (defclass* extracted-lambda (program)
   ((name)))
-
-(defclass* assignment (program)
-  ((var)
-   (form)))
-
-(defclass* local-assignment (assignment)
-  ())
-
-(defclass* lexical-assignment (assignment)
-  ())
-
-(defclass* dynamic-assignment (assignment)
-  ())
-
-(defclass* lambda-form (program)
-  ((lambda-list)
-   (arguments)
-   (body)))
-
-(defclass* if-form (program)
-  ((test)
-   (then)
-   (else)))
-
-(defclass* progn-form (program)
-  ((first)
-   (last)))
-
-(defclass* constant (program)
-  ((value)))
-
-(defclass* application (program) ())
-
-(defclass* regular-application (application)
-  ((function)
-   (arguments)))
-
-(defclass* lambda-application (application)
-  ((lambda)
-   (arguments)))
-
-(defclass* predefined-application (application)
-  ((var)
-   (arguments)))
-
-(defclass* let-form (program)
-  ((vars)
-   (values)
-   (body)))
-
-(defclass* arguments (program)
-  ((first)
-   (others)))
-
-(defclass* no-argument (program) ())
-
-(defclass* abstract-function ()
-  ((symbol)))
-
-(defclass* local-function (abstract-function) ())
-
-(defclass* global-function (abstract-function) ())
-
 
 (defgeneric toplevelp (x))
 

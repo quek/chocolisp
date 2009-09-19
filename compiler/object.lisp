@@ -1,18 +1,3 @@
-(defun make-vars (vars)
-  (if (null vars)
-      nil
-      (cons (cons (car vars) (cadr vars))
-            (make-var (cddr vars)))))
-
-(defun walk (self vars message &rest args)
-  (if (null vars)
-      self
-      (let ((key (caar vars))
-            (val (cdar vars)))
-        (when (functionp val)
-          (funcall self :set key (apply val message args)))
-        (walk self (cdr vars) args))))
-
 (defun make-object (&rest vars)
   (let (self
         (vars (make-vars vars)))
@@ -61,8 +46,18 @@
                  (case message
                    (t (apply super message args)))))))
 
-(let ((x (make-program :name "foo" :args '(x y))))
-  (list
-   (funcall x :get :args)
-   (funcall x :set :args '(bar foo))
-   (funcall x :get :args nil)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun make-vars (vars)
+  (if (null vars)
+      nil
+      (cons (cons (car vars) (cadr vars))
+            (make-var (cddr vars)))))
+
+(defun walk (self vars message &rest args)
+  (if (null vars)
+      self
+      (let ((key (caar vars))
+            (val (cdar vars)))
+        (when (functionp val)
+          (funcall self :set key (apply val message args)))
+        (walk self (cdr vars) args))))
