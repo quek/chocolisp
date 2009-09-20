@@ -1153,8 +1153,7 @@ tailcall
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (with-open-file (in lisp-file)
     (with-open-file (*pir-stream* pir-file :direction :output
-                                  :if-exists :overwrite
-                                  :if-does-not-exist :create)
+                                  :if-exists :supersede)
       (put-common-header)
       (let ((*package* *package*))
         (read-loop in)))))

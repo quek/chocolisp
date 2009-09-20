@@ -1,11 +1,16 @@
 (chimacho::in-package "CHIMACHO")
 
-(defun xxxx (fun args)
-  (%mapcar (lambda (x) (funcall fun x)) args))
+(defun %cadr (x)
+  (car (cdr x)))
+(defun %caddr (x)
+  (car (cdr (cdr x))))
 (defun %mapcar (f list)
   (if list
       (cons (funcall f (car list)) (%mapcar f (cdr list)))))
-(xxxx #'print '("a" "b" "c"))
+(defun %mapcar-test (fun args)
+  (%mapcar (lambda (x) (+ x 1)) args))
+(is 9 (let ((x (%mapcar-test #'print '(1 2 3))))
+        (+ (car x) (%cadr x) (%caddr x))))
 
 ;;(defun objectify-application-symbol (fun args r f)
 ;;  (let ((fun (if (eq *package* (symbol-package fun))
