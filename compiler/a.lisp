@@ -12,15 +12,15 @@
 (is 9 (let ((x (%mapcar-test #'print '(1 2 3))))
         (+ (car x) (%cadr x) (%caddr x))))
 
-;;(defun objectify-application-symbol (fun args r f)
-;;  (let ((fun (if (eq *package* (symbol-package fun))
-;;                 (make-local-function fun)
-;;                 (make-global-function fun)))
-;;        (objected-args (list-to-arguments
-;;                        (mapcar (lambda (x)
-;;                                  (objectify x r f))
-;;                                args))))
-;;    (make-regular-application fun objected-args)))
+(defun objectify-application-symbol (fun args r f)
+  (let ((fun (if (eq *package* (symbol-package fun))
+                 (make-local-function fun)
+                 (make-global-function fun)))
+        (objected-args (list-to-arguments
+                        (mapcar (lambda (x)
+                                  (objectify x r f))
+                                args))))
+    (make-regular-application fun objected-args)))
 
 (is 0 (+))
 (is 1 (+ 1))

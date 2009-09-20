@@ -1129,8 +1129,8 @@ tailcall
 
 (defun read-loop (in)
   (let ((form (read in nil)))
-    (print form)
     (when form
+      (format *pir-stream* "~&=head2~%~s~%=cut~%" form)
       (let ((object (objectify form nil nil)))
         (if (funcall object :toplevelp)
             (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
@@ -1152,11 +1152,15 @@ tailcall
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (with-open-file (in lisp-file)
+    (when (probe-file pir-file)
+      (delete-file pir-file))
     (with-open-file (*pir-stream* pir-file :direction :output
                                   :if-exists :supersede)
-      (put-common-header)
-      (let ((*package* *package*))
-        (read-loop in)))))
+      (let ((*pir-stream* (make-broadcast-stream *pir-stream*
+                                                 *standard-output*)))
+        (put-common-header)
+        (let ((*package* *package*))
+          (read-loop in))))))
 
 (defun compile-pir-to-pbc (pir-file pbc-file)
   (sb-ext:run-program "parrot"
