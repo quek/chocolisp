@@ -1044,7 +1044,9 @@ tailcall
       nil
       (if (member var (collect-vars
                        (funcall (car outers) :get :lambda-list)))
-          (funcall (car outers) :add :lexical-store var)
+          (let ((lexical-store (funcall (car outers) :get :lexical-store)))
+            (unless (member var lexical-store)
+              (funcall (car outers) :add :lexical-store var)))
           (set-lexical-var var (cdr outers)))))
 
 (defun collect-vars (x)
