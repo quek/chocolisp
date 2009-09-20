@@ -27,40 +27,43 @@ tailcall
 (defvar *label-counter*)
 
 (defun objectify (form r f)
-  (if (atom form)
-      (if (symbolp form)
-          (objectify-reference form r f)
-          (objectify-quotation form))
-      (case (car form)
-        (quote
-           (objectify-quotation (cadr form)))
-        (if
-            (objectify-if (cadr form) (caddr form) (cadddr form)
-                          r f))
-        (let
-            (objectify-let (cadr form) (cddr form) r f))
-        (lambda
-            (objectify-lambda (cadr form) (cddr form) r f))
-        (progn
-          (objectify-progn (cdr form) r f))
-        (setq
-           ;; TODO 1 つだけじゃない
-           (objectify-setq (cadr form) (caddr form) r f))
-        (flet
-            )
-        (labels
-            )
-        (eval-when
-            (objectify-eval-when (cadr form) (cddr form) r f))
-        (chimacho::defun
-            (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
-        (chimacho::defmacro
-            (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
-        (chimacho::in-package
-           (objectify-in-package (cadr form)))
-        (chimacho::defvar
-            (objectify-defvar (cadr form) (caddr form) r f))
-        (t (objectify-application (car form) (cdr form) r f)))))
+  (let ((form (%macroexpand form)))
+    (if (atom form)
+        (if (symbolp form)
+            (objectify-reference form r f)
+            (objectify-quotation form))
+        (case (car form)
+          (quote
+             (objectify-quotation (cadr form)))
+          (if
+              (objectify-if (cadr form) (caddr form) (cadddr form)
+                            r f))
+          (let
+              (objectify-let (cadr form) (cddr form) r f))
+          (lambda
+              (objectify-lambda (cadr form) (cddr form) r f))
+          (function
+             (objectify-function (cadr form) r f))
+          (progn
+            (objectify-progn (cdr form) r f))
+          (setq
+             ;; TODO 1 つだけじゃない
+             (objectify-setq (cadr form) (caddr form) r f))
+          (flet
+              )
+          (labels
+              )
+          (eval-when
+              (objectify-eval-when (cadr form) (cddr form) r f))
+          (chimacho::defun
+              (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
+          (chimacho::defmacro
+              (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
+          (chimacho::in-package
+             (objectify-in-package (cadr form)))
+          (chimacho::defvar
+              (objectify-defvar (cadr form) (caddr form) r f))
+          (t (objectify-application (car form) (cdr form) r f))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun objectify-setq (symbol value-form r f)
@@ -112,6 +115,18 @@ tailcall
 
 (defun objectify-lambda (vars body r f)
   (make-lambda vars (objectify-progn body (extend-r r vars) f)))
+
+(defun objectify-function (name r f)
+  (if (symbolp name)
+      (if (eq *package* (symbol-package name))
+          (make-extracted-lambda name)
+          (make-global-function-reference name))
+      (if (and (consp name)
+               (eq 'lambda (car name)))
+          (let ((vars (cadr name))
+                (body (cddr name)))
+            (make-lambda vars (objectify-progn body (extend-r r vars) f)))
+          (error "Invalid function name ~s." name))))
 
 (defun objectify-defun (name lambda-list body r f)
   (make-defun name
@@ -374,7 +389,9 @@ tailcall
                                         nil
                                         outers
                                         nil)))
-                   (funcall (car outers) :add :inner-functions flat-function)
+                   (if outers
+                       (funcall (car outers) :add
+                                :inner-functions flat-function))
                    (funcall flat-function :set :body
                             (funcall body :東京ミュウミュウ-metamorphose!
                                      (cons flat-function outers)))
@@ -401,7 +418,9 @@ tailcall
                                         nil
                                         outers
                                         nil)))
-                   (funcall (car outers) :add :inner-functions flat-function)
+                   (if outers
+                       (funcall (car outers) :add
+                                :inner-functions flat-function))
                    (funcall flat-function
                             :set
                             :body
@@ -456,7 +475,9 @@ tailcall
                                                            nil
                                                            outers
                                                            nil)))
-                   (funcall (car outers) :add :inner-functions flat-function)
+                   (if outers
+                       (funcall (car outers) :add
+                                :inner-functions flat-function))
                    (funcall flat-function
                             :set
                             :body
@@ -604,6 +625,7 @@ tailcall
     (setq self
           (lambda (message &rest args)
             (case message
+              (:toplevelp t)
               (:東京ミュウミュウ-metamorphose!
                  (let* ((name (funcall self :get :name))
                         (lambda-list (funcall self :get :lambda-list))
@@ -631,6 +653,7 @@ tailcall
     (setq self
           (lambda (message &rest args)
             (case message
+              (:toplevelp t)
               (:東京ミュウミュウ-metamorphose!
                  (let* ((name (funcall self :get :name))
                         (lambda-list (funcall self :get :lambda-list))
@@ -761,6 +784,23 @@ tailcall
                  (let ((name (funcall self :get :name))
                        (var (next-var)))
                    (prt ".const 'Sub' ~a = ~a" var (parrot-sub-name name))
+                   var))
+              (t (let ((ret (apply super message args)))
+                   (if (eq ret super) self ret))))))))
+
+(defun make-global-function-reference (name)
+  (let ((super (make-program :name name))
+        self)
+    (setq self
+          (lambda (message &rest args)
+            (case message
+              (:pir
+                 (let ((name (funcall self :get :name))
+                       (var (next-var)))
+                   (prt "~a = get_hll_global [ ~s ], ~s"
+                        var
+                        (package-name (symbol-package name))
+                        (symbol-name name))
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -950,21 +990,25 @@ tailcall
 
 (defun read-loop (in)
   (let ((form (read in nil)))
+    (print form)
     (when form
-      (let* ((expanded-form (print (%macroexpand form)))
-             (object (funcall (objectify expanded-form nil nil)
-                              :東京ミュウミュウ-metamorphose!
-                              nil)))
+      (let ((object (objectify form nil nil)))
         (if (funcall object :toplevelp)
-            (funcall object :pir)
-            (funcall (make-flat-function (gensym "init")
-                                         nil
-                                         object
-                                         nil
-                                         nil
-                                         nil
-                                         '(":anon" ":init" ":load"))
-                     :pir)))
+            (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
+            (let ((flat-function (make-flat-function
+                                  (gensym "toplevel")
+                                  nil
+                                  nil
+                                  nil
+                                  nil
+                                  nil
+                                  '(":anon" ":init" ":load"))))
+              (setq object (funcall object
+                                    :東京ミュウミュウ-metamorphose!
+                                    (list flat-function)))
+              (funcall flat-function :set :body object)
+              (setq object flat-function)))
+        (funcall object :pir))
       (read-loop in))))
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
@@ -985,8 +1029,8 @@ tailcall
 (defun put-common-header ()
   (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
 
-(defun compile-and-run (&optional (file "a.lisp"))
-  (parrot-compile-file (merge-pathnames file *load-truename*))
+(defun compile-and-run (&optional (file "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"))
+  (parrot-compile-file file)
   (locally (declare (optimize (speed 0)))
     (sb-posix:chdir "/home/ancient/letter/parrot/chocolisp/"))
   (sb-ext:run-program "parrot"
@@ -995,4 +1039,4 @@ tailcall
                       :wait t
                       :output *standard-output*))
 
-(compile-and-run)
+;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/chimacho.lisp")

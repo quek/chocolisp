@@ -3,13 +3,16 @@
   (:shadow #:defun
            #:defmacro
            #:defvar
-           #:in-package))
+           #:in-package
+           ;; chimach.list
+           #:list
+           #:when
+           #:unless))
 
 (cl:in-package :chimacho)
 
-(cl:defmacro defun (&whole whole &rest rest)
-  (declare (ignore rest))
-  whole)
+(cl:defun defun (&rest rest)
+  (cons 'defun rest))
 
 (cl:defmacro defmacro (&whole whole &rest rest)
   (declare (ignore rest))

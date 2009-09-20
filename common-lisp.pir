@@ -90,6 +90,34 @@ true:
         .return(t)
 .end
 
+.sub 'TYPE-OF'
+        .param pmc x
+        .param pmc package
+        package = find_package("COMMON-LISP")
+        $I0 = isa x, ["CHOCO";"SYMBOL"]
+        if $I0 goto SYMBOL
+        $I0 = isa x, "String"
+        if $I0 goto STRING
+        $I0 = isa x, "Integer"
+        if $I0 goto INTEGER
+        .t
+        .return(t)
+SYMBOL:
+        $P0 = package.'intern'("SYMBOL")
+        .return($P0)
+STRING:
+        $P0 = package.'intern'("String")
+        .return($P0)
+INTEGER:
+        $P0 = package.'intern'("Integer")
+        .return($P0)
+.end
+
+.sub 'PRINC'
+        .param pmc x
+        print x
+        .return(x)
+.end
 
 .sub 'PRINT'
         .param pmc x

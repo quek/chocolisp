@@ -25,15 +25,11 @@
   (print n)
   (print *x*))
 
-(defmacro unless (test form)
-  (list 'if test (cons 'progn form)))
-
-(unless nil
-  (foo))
-
 (defun my-list (&rest list)
   list)
 
+(foo)
 (print (my-list 11 22 33 44 55))
-
+(funcall (function print) "function print!")
+(funcall (function (lambda (x) (print x))) "function lambda!")
 (print "ok")
