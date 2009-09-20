@@ -1122,7 +1122,8 @@ tailcall
                                        (make-pathname :type "pbc"
                                                       :defaults file))))
   (compile-lisp-to-pir file pir-file)
-  (compile-pir-to-pbc pir-file pbc-file))
+  ;;(compile-pir-to-pbc pir-file pbc-file)
+  )
 
 (defun %macroexpand (form)
   (let ((expanded-form (macroexpand-1 form)))

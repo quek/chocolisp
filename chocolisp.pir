@@ -83,9 +83,9 @@ end:
         $P1 = $P0($P1)
         say $P1
 
-        say "==== start compiler/a.pbc ===="
-        load_bytecode "compiler/a.pbc"
-        say "==== end compiler/a.pbc ===="
+        say "==== start compiler/a.pir ===="
+        load_bytecode "compiler/a.pir"
+        say "==== end compiler/a.pir ===="
 .end
 
 .sub '' :anon :load :init
