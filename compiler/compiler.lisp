@@ -500,9 +500,7 @@ tailcall
                  (let ((function (funcall self :get :function))
                        (arguments (funcall self :get :arguments))
                        (args (next-var)))
-                   (prt "~a = new 'ResizablePMCArray'" args)
-                   (funcall arguments :pir args)
-                   (funcall function :pir args)))
+                   (apply function :pir (funcall arguments :pir args))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -551,9 +549,9 @@ tailcall
               (:pir
                  (let ((first (funcall self :get :first))
                        (rest  (funcall self :get :rest))
-                       (array (car args)))
-                   (prt "push ~a, ~a" array (funcall first :pir))
-                   (funcall rest :pir array)))
+                       (var (next-var)))
+                   (prt "~a = ~a" var (funcall first :pir))
+                   (cons var (funcall rest :pir))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -563,8 +561,7 @@ tailcall
     (setq self
           (lambda (message &rest args)
             (case message
-              (:pir (let ((array (car args)))
-                      array))
+              (:pir nil)
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -623,9 +620,8 @@ tailcall
             (case message
               (:pir
                  (let ((symbol (funcall self :get :symbol))
-                       (args (car args))
                        (return-value (next-var)))
-                   (prt "~a = ~a(~a :flat)"
+                   (prt "~a = ~a(~{~a~^, ~})"
                         return-value (parrot-sub-name symbol) args)
                    return-value))
               (t (let ((ret (apply super message args)))
@@ -639,14 +635,13 @@ tailcall
             (case message
               (:pir
                  (let ((symbol (funcall self :get :symbol))
-                       (args (car args))
                        (fun-var (next-var))
                        (return-value (next-var)))
                    (prt "~a = get_hll_global [ ~s ], ~s"
                         fun-var
                         (package-name (symbol-package symbol))
                         (symbol-name symbol))
-                   (prt "~a  = ~a(~a :flat)" return-value fun-var args)
+                   (prt "~a  = ~a(~{~a~^, ~})" return-value fun-var args)
                    return-value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -900,16 +895,16 @@ tailcall
               (:pir
                  (let ((name (funcall self :get :name))
                        (values (funcall self :get :values))
-                       (var (next-var))
-                       (args (next-var))
+                       (fun (next-var))
                        (result (next-var)))
                    (prt ".const 'Sub' ~a = ~a"
-                        var (parrot-sub-name name))
-                   (prt "~a = new 'ResizablePMCArray'" args)
-                   (mapc (lambda (arg)
-                           (prt "push ~a, ~a" args (funcall arg :pir)))
-                         values)
-                   (prt "~a = ~a(~a :flat)" result var args)
+                        fun (parrot-sub-name name))
+                   (prt "~a = ~a(~{~a~^, ~})" result fun
+                        (mapcar (lambda (arg)
+                             (let ((var (next-var)))
+                               (prt "~a = ~a" var (funcall arg :pir))
+                               var))
+                           values))
                    result))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
