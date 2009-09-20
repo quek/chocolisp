@@ -1,5 +1,19 @@
 (chimacho::in-package "CHIMACHO")
 
+(let* ((x 10)
+       (y x))
+  (is 10 y))
+
+(let ((x 1))
+  (let* ((x 2)
+         (y x))
+    (is 2 y)))
+
+(let ((x 1))
+  (let ((x 2)
+        (y x))
+    (is 1 y)))
+
 (defvar *x* "*x* is 701")
 
 (defun foo ()
