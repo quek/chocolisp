@@ -113,6 +113,19 @@ INTEGER:
         .return($P0)
 .end
 
+.sub '+'
+        .param pmc args :slurpy
+        $P0 = box 0
+loop:
+        $I0 = args
+        unless $I0 goto end
+        $P1 = shift args
+        $P0 += $P1
+        goto loop
+end:
+        .return($P0)
+.end
+
 .sub 'PRINC'
         .param pmc x
         print x

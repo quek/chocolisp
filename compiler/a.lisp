@@ -1,8 +1,17 @@
 (chimacho::in-package "CHIMACHO")
 
+(is 0 (+))
+(is 1 (+ 1))
+(is 3 (+ 1 2))
+(is 6 (+ 1 2 3))
+
 (let* ((x 10)
        (y x))
   (is 10 y))
+
+(let* ((x 1)
+       (y (+ x x)))
+  (is 2 y))
 
 (let ((x 1))
   (let* ((x 2)
