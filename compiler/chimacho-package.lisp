@@ -3,11 +3,7 @@
   (:shadow #:defun
            #:defmacro
            #:defvar
-           #:in-package
-           ;; chimach.list
-           #:list
-           #:when
-           #:unless))
+           #:in-package))
 
 (cl:in-package :chimacho)
 

@@ -241,7 +241,9 @@ tailcall
             (case message
               (:東京ミュウミュウ-metamorphose!
                  (let ((var (funcall self :get :var)))
-                   (unless (member var (funcall (caar args) :get :arguments))
+                   (unless (member var
+                                   (collect-vars
+                                    (funcall (caar args) :get :lambda-list)))
                      (set-lexical-var var (car args)))
                    self))
               (:pir
@@ -258,6 +260,11 @@ tailcall
     (setq self
           (lambda (message &rest args)
             (case message
+              (:東京ミュウミュウ-metamorphose!
+                 (let ((var (funcall self :get :var))
+                       (outers (car args)))
+                   (set-lexical-var var outers))
+                 self)
               (:pir
                  (let ((var (funcall self :get :var))
                        (value (next-var)))
@@ -528,8 +535,10 @@ tailcall
                             (funcall body
                                      :東京ミュウミュウ-metamorphose!
                                      (cons flat-function outers)))
-                   (make-regular-application (make-local-function name)
-                                             arguments)))
+                   (make-regular-application
+                    (make-local-function name)
+                    (funcall arguments :東京ミュウミュウ-metamorphose!
+                             (cons flat-function outers)))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1018,6 +1027,7 @@ tailcall
 
 (defun pir-atom (atom)
   (etypecase atom
+    ;; TODO $P1 = box 3
     (integer
        (let ((var (next-var)))
          (prt "~a = new ~s" var "Integer")
@@ -1034,7 +1044,8 @@ tailcall
 (defun set-lexical-var (var outers)
   (if (null outers)
       nil
-      (if (member var (funcall (car outers) :get :arguments))
+      (if (member var (collect-vars
+                       (funcall (car outers) :get :lambda-list)))
           (funcall (car outers) :add :lexical-store var)
           (set-lexical-var var (cdr outers)))))
 

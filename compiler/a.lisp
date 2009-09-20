@@ -1,5 +1,22 @@
 (chimacho::in-package "CHIMACHO")
 
+(defun xxxx (fun args)
+  (%mapcar (lambda (x) (funcall fun x)) args))
+(defun %mapcar (f list)
+  (if list
+      (cons (funcall f (car list)) (%mapcar f (cdr list)))))
+(xxxx #'print '("a" "b" "c"))
+
+;;(defun objectify-application-symbol (fun args r f)
+;;  (let ((fun (if (eq *package* (symbol-package fun))
+;;                 (make-local-function fun)
+;;                 (make-global-function fun)))
+;;        (objected-args (list-to-arguments
+;;                        (mapcar (lambda (x)
+;;                                  (objectify x r f))
+;;                                args))))
+;;    (make-regular-application fun objected-args)))
+
 (is 0 (+))
 (is 1 (+ 1))
 (is 3 (+ 1 2))
