@@ -1026,20 +1026,18 @@ tailcall
     var))
 
 (defun pir-atom (atom)
-  (etypecase atom
-    ;; TODO $P1 = box 3
-    (integer
-       (let ((var (next-var)))
-         (prt "~a = new ~s" var "Integer")
-         (prt "~a = ~s" var atom)
-         var))
+  (typecase atom
     (string
        (let ((var (next-var)))
          (prt "~a = new ~s" var "String")
          (prt "~a = utf8:unicode:~s" var atom)
          var))
     (symbol
-       (pir-symbol atom))))
+       (pir-symbol atom))
+    (t
+       (let ((var (next-var)))
+         (prt "~a = box ~s" var atom)
+         var))))
 
 (defun set-lexical-var (var outers)
   (if (null outers)
@@ -1121,6 +1119,7 @@ tailcall
                             (pbc-file (namestring
                                        (make-pathname :type "pbc"
                                                       :defaults file))))
+  (declare (ignorable pbc-file))
   (compile-lisp-to-pir file pir-file)
   ;;(compile-pir-to-pbc pir-file pbc-file)
   )
@@ -1157,7 +1156,8 @@ tailcall
 (defun compile-lisp-to-pir (lisp-file pir-file)
   (with-open-file (in lisp-file)
     (with-open-file (*pir-stream* pir-file :direction :output
-                                  :if-exists :supersede)
+                                  :if-exists :overwrite
+                                  :if-does-not-exist :create)
       (put-common-header)
       (let ((*package* *package*))
         (read-loop in)))))
