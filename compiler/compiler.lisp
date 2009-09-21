@@ -1027,13 +1027,13 @@ tailcall
         (apply #'walk self (cdr vars) message args))))
 
 (let (var)
-  (defun next-var (&optional (kind "P"))
-    (setf var (format nil "$~a~d" kind (incf *var-counter*))))
+  (defun next-var ()
+    (setf var (format nil "$P~d" (incf *var-counter*))))
   (defun current-var ()
     var))
 
 (let (var)
-  (defun next-label (&optional (name "L"))
+  (defun next-label (name)
     (setf var (format nil "~a~d" name (incf *label-counter*))))
   (defun current-label ()
     var))
@@ -1183,17 +1183,12 @@ tailcall
       f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun parrot-compile-file (file &optional
-                            (pir-file (namestring
-                                       (make-pathname :type "pir"
-                                                      :defaults file)))
-                            (pbc-file (namestring
-                                       (make-pathname :type "pbc"
-                                                      :defaults file))))
-  (declare (ignorable pbc-file))
-  (compile-lisp-to-pir file pir-file)
+(defun parrot-compile-file (file)
+  (let ((pir-file (namestring (make-pathname :type "pir" :defaults file))))
+        ;;(pbc-file (namestring (make-pathname :type "pbc" :defaults file))))
+    (compile-lisp-to-pir file pir-file)
   ;;(compile-pir-to-pbc pir-file pbc-file)
-  )
+    ))
 
 (defun %macroexpand (form)
   (let ((expanded-form (macroexpand-1 form)))
@@ -1246,7 +1241,7 @@ tailcall
 (defun put-common-header ()
   (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
 
-(defun compile-and-run (&optional (file "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"))
+(defun compile-and-run (file)
   (parrot-compile-file file)
   (locally (declare (optimize (speed 0)))
     (sb-posix:chdir "/home/ancient/letter/parrot/chocolisp/"))
@@ -1256,4 +1251,5 @@ tailcall
                       :wait t
                       :output *standard-output*))
 
+(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/parrot-compiler.lisp")
