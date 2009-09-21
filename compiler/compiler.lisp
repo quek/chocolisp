@@ -87,6 +87,29 @@ tailcall
          (body (objectify-progn body-form r new-f)))
     (make-flet fdefs body)))
 
+(defun %objectify-labels (acc labels-form body-form r f)
+  (if labels-form
+      (let* ((def (car labels-form))
+             (label (car def))
+             (gensym-label (gensym (symbol-name label)))
+             (lambda-list (cadr def))
+             (body (cddr def)))
+        (%objectify-labels
+         (cons (make-defun gensym-label
+                           lambda-list
+                           (objectify-progn body
+                                            (extend-r r lambda-list)
+                                            f))
+               acc)
+         (cdr labels-form)
+         body-form
+         r
+         (extend-f f (list (cons label gensym-label)))))
+      (make-flet acc (objectify-progn body-form r f))))
+
+(defun objectify-labels (labels-form body-form r f)
+  (%objectify-labels nil labels-form body-form r f))
+
 (defun objectify-setq (symbol value-form r f)
   (ecase (var-kind symbol r f)
     (:local
