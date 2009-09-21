@@ -372,9 +372,10 @@ tailcall
           (lambda (message &rest args)
             (case message
               (:pir
-                 (let ((var (funcall self :get :var))
+                 (let ((var (parrot-var (funcall self :get :var)))
                        (value (funcall (funcall self :get :form) :pir)))
-                   (prt "store_lex '~a', ~a" (parrot-var var) value)
+                   (prt "~a = ~a" var value)
+                   (prt "store_lex '~a', ~a" var value)
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -853,9 +854,11 @@ tailcall
               (:pir
                  (let ((name (funcall self :get :name))
                        (closure-name (funcall self :get :closure-name))
+                       (sub-var (next-var))
                        (closure-var (next-var)))
                    (prt ".const 'Sub' ~a = ~a"
-                        closure-var (parrot-sub-name closure-name))
+                        sub-var (parrot-sub-name closure-name))
+                   (prt "~a = newclosure ~a" closure-var sub-var)
                    (prt "setattribute ~a, 'function', ~a"
                         (prt-intern-symbol name) closure-var)
                    closure-var))
