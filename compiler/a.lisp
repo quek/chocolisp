@@ -7,20 +7,18 @@
 (defun %mapcar (f list)
   (if list
       (cons (funcall f (car list)) (%mapcar f (cdr list)))))
+
 (defun %mapcar-test (fun args)
   (%mapcar (lambda (x) (+ x 1)) args))
 (is 9 (let ((x (%mapcar-test #'print '(1 2 3))))
         (+ (car x) (%cadr x) (%caddr x))))
 
-(defun objectify-application-symbol (fun args r f)
-  (let ((fun (if (eq *package* (symbol-package fun))
-                 (make-local-function fun)
-                 (make-global-function fun)))
-        (objected-args (list-to-arguments
-                        (mapcar (lambda (x)
-                                  (objectify x r f))
-                                args))))
-    (make-regular-application fun objected-args)))
+(defun let-lambda-test (args)
+  (let ((vars (%mapcar (lambda (x) (+ x 1))
+                      args)))
+    vars))
+(is 5 (let ((ret (let-lambda-test '(1 2))))
+        (+ (car ret) (%cadr ret))))
 
 (is 0 (+))
 (is 1 (+ 1))

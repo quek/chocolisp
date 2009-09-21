@@ -17,6 +17,9 @@ tailcall
 |#
 (declaim (optimize (debug 3) (safety 3)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (load "chimacho-package.lisp"))
+
 (defpackage :chocolisp.compiler
     (:use :common-lisp))
 
@@ -108,9 +111,9 @@ tailcall
                                  x))
                            bindings))
          (vars (mapcar #'car bindings))
-         (values (mapcar (lambda (x)
-                           (objectify (cadr x) r f))
-                         bindings)))
+         (values  (list-to-arguments (mapcar (lambda (x)
+                                               (objectify (cadr x) r f))
+                                             bindings))))
     (make-let vars
               values
               (objectify-progn body (extend-r r vars) f))))
@@ -414,7 +417,10 @@ tailcall
                    (funcall flat-function :set :body
                             (funcall body :東京ミュウミュウ-metamorphose!
                                      (cons flat-function outers)))
-                   (make-extracted-let name values)))
+                   (make-extracted-let
+                    name
+                    (funcall values :東京ミュウミュウ-metamorphose!
+                             (cons flat-function outers)))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -446,7 +452,7 @@ tailcall
                    (funcall flat-let*-function :set :body
                             (funcall body :東京ミュウミュウ-metamorphose!
                                      (cons flat-let*-function outers)))
-                   (make-extracted-let name nil)))
+                   (make-extracted-let name (make-no-argument))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -900,11 +906,7 @@ tailcall
                    (prt ".const 'Sub' ~a = ~a"
                         fun (parrot-sub-name name))
                    (prt "~a = ~a(~{~a~^, ~})" result fun
-                        (mapcar (lambda (arg)
-                             (let ((var (next-var)))
-                               (prt "~a = ~a" var (funcall arg :pir))
-                               var))
-                           values))
+                        (funcall values :pir))
                    result))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
