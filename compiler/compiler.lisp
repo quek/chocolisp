@@ -77,11 +77,12 @@ tailcall
                              (cons name (gensym (symbol-name name)))))
                          flet-form))
          (fdefs (mapcar (lambda (fnames form)
-                          (make-defun (cdr fnames)
-                                      (cadr form)
-                                      (objectify-progn
-                                       (cddr form)
-                                       (extend-r r (cadr form)) f)))
+                          (make-flat-function
+                           (cdr fnames)
+                           (cadr form)
+                           (objectify-progn (cddr form)
+                                            (extend-r r (cadr form)) f)
+                           nil nil nil nil))
                         fnames flet-form))
          (new-f (extend-f f fnames))
          (body (objectify-progn body-form r new-f)))
@@ -95,11 +96,11 @@ tailcall
              (lambda-list (cadr def))
              (body (cddr def)))
         (%objectify-labels
-         (cons (make-defun gensym-label
-                           lambda-list
-                           (objectify-progn body
-                                            (extend-r r lambda-list)
-                                            f))
+         (cons (make-flat-function
+                gensym-label
+                lambda-list
+                (objectify-progn body (extend-r r lambda-list) f)
+                nil nil nil nil)
                acc)
          (cdr labels-form)
          body-form
@@ -317,10 +318,10 @@ tailcall
                    (set-lexical-var var outers))
                  self)
               (:pir
-                 (let ((var (funcall self :get :var))
-                       (value (next-var)))
-                   (prt "~a = find_lex '~a'" value (parrot-var var))
-                   value))
+                 (let ((var (parrot-var (funcall self :get :var))))
+                   (prt ".local pmc ~a" var)
+                   (prt "~a = find_lex '~a'" var var)
+                   var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -370,6 +371,11 @@ tailcall
     (setq self
           (lambda (message &rest args)
             (case message
+              (:pir
+                 (let ((var (funcall self :get :var))
+                       (value (funcall (funcall self :get :form) :pir)))
+                   (prt "store_lex '~a', ~a" (parrot-var var) value)
+                   value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -547,8 +553,7 @@ tailcall
                        (outers (car args)))
                    (mapcar (lambda (fdef)
                              (funcall (car outers)
-                                      :add
-                                      :inner-functions
+                                      :add :inner-functions
                                       (funcall fdef
                                                :東京ミュウミュウ-metamorphose!
                                                outers)))
@@ -790,20 +795,70 @@ tailcall
                  (let* ((name (funcall self :get :name))
                         (lambda-list (funcall self :get :lambda-list))
                         (body (funcall self :get :body))
-                        (outers (car args))
-                        (flat-function (make-flat-function  name
-                                                            lambda-list
-                                                            nil
-                                                            nil
-                                                            nil
-                                                            outers
-                                                            nil))
-                        (extracted-body (funcall
+                        (outers (car args)))
+                   (if outers
+                       (let* ((closure-name (gensym (symbol-name name)))
+                              (closure (make-flat-function
+                                        closure-name
+                                        lambda-list
+                                        (funcall
                                          body
                                          :東京ミュウミュウ-metamorphose!
-                                         (cons flat-function outers))))
-                   (funcall flat-function :set :body extracted-body)
-                   flat-function))
+                                         outers)
+                                        nil nil outers nil))
+                              (let-defun (make-let-defun name)))
+                         (funcall (car outers) :add :inner-functions closure)
+                         (funcall (car outers) :add :inner-functions let-defun)
+                         (make-set-symbol-function name closure-name))
+                       (let ((defun (make-flat-function
+                                     name
+                                     lambda-list
+                                     nil
+                                     nil
+                                     nil
+                                     outers
+                                     nil)))
+                         (funcall defun :set :body
+                                  (funcall body
+                                           :東京ミュウミュウ-metamorphose!
+                                           (cons defun outers)))
+                         defun))))
+              (t (let ((ret (apply super message args)))
+                   (if (eq ret super) self ret))))))))
+
+(defun make-let-defun (name)
+  (let ((super (make-program :name name))
+        self)
+    (setq self
+          (lambda (message &rest args)
+            (case message
+              (:pir
+                 (let ((name (funcall self :get :name)))
+                   (prt-top ".sub ~a" (parrot-sub-name name))
+                   (prt ".param pmc x :slurpy")
+                   (let ((f (next-var)))
+                     (prt "~a = getattribute ~a, 'function'"
+                          f (prt-intern-symbol name))
+                     (prt ".tailcall ~a(x :flat)" f))
+                   (prt-top ".end~%")))
+              (t (let ((ret (apply super message args)))
+                   (if (eq ret super) self ret))))))))
+
+(defun make-set-symbol-function (name closure-name)
+  (let ((super (make-program :name name :closure-name closure-name))
+        self)
+    (setq self
+          (lambda (message &rest args)
+            (case message
+              (:pir
+                 (let ((name (funcall self :get :name))
+                       (closure-name (funcall self :get :closure-name))
+                       (closure-var (next-var)))
+                   (prt ".const 'Sub' ~a = ~a"
+                        closure-var (parrot-sub-name closure-name))
+                   (prt "setattribute ~a, 'function', ~a"
+                        (prt-intern-symbol name) closure-var)
+                   closure-var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1251,5 +1306,5 @@ tailcall
                       :wait t
                       :output *standard-output*))
 
-(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/parrot-compiler.lisp")
+;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")

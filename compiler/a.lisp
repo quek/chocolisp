@@ -20,7 +20,7 @@
     count))
 (count-inc)
 (is 1 (count-get))
-(conut-inc)
+(count-inc)
 (is 2 (count-get))
 
 (flet ((%cadr (x)
