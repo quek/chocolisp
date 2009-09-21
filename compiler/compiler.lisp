@@ -14,6 +14,7 @@ defun は .sub してるだけだが、
 
 TODO
 tailcall
+
 |#
 (declaim (optimize (debug 3) (safety 3)))
 
