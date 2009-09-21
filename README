@@ -6,6 +6,7 @@
 
  - 末尾再帰
  - sub のメモリ。再定義でどうなるか。
+ - .lex, store_lex, find_lex, newclosure の整理
 
 ; local variables:
 ; mode: muse
