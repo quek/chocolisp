@@ -86,6 +86,9 @@ end:
         say "==== start compiler/a.pir ===="
         load_bytecode "compiler/a.pir"
         say "==== end compiler/a.pir ===="
+##        say "==== start compiler/parrot-compiler.pir ===="
+##        load_bytecode "compiler/parrot-compiler.pir"
+##        say "==== end compiler/parrot-compiler.pir ===="
 .end
 
 .sub '' :anon :load :init

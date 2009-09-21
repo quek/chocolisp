@@ -333,7 +333,7 @@ tailcall
               (:pir
                  (let ((var (funcall self :get :var))
                        (value (next-var)))
-                   (prt "~a = dynamic_scope_value('~a', ~s, ~s)"
+                   (prt "~a = dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s)"
                         value
                         (parrot-var var)
                         (package-name (symbol-package var))
@@ -1085,9 +1085,9 @@ tailcall
 (defun prt-intern-symbol (symbol)
   (let ((package (next-var))
         (var (next-var)))
-    (prt "~a = find_package(~s)"
+    (prt "~a = find_package(utf8:unicode:~s)"
          package (package-name (symbol-package symbol)))
-    (prt "~a = ~a.'intern'(~s)" var package (symbol-name symbol))
+    (prt "~a = ~a.'intern'(utf8:unicode:~s)" var package (symbol-name symbol))
     var))
 
 (defun pir-atom (atom)

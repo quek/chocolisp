@@ -1,5 +1,10 @@
 (chimacho::in-package "CHIMACHO")
 
+(let ((x 0))
+  (defun get-x ()
+    x))
+(is 0 (get-x))
+
 (defun %cadr (x)
   (car (cdr x)))
 (defun %caddr (x)
@@ -7,6 +12,16 @@
 (defun %mapcar (f list)
   (if list
       (cons (funcall f (car list)) (%mapcar f (cdr list)))))
+
+(let ((count 0))
+  (defun count-inc ()
+    (setq count (+ count 1)))
+  (defun count-get ()
+    count))
+(count-inc)
+(is 1 (count-get))
+(conut-inc)
+(is 2 (count-get))
 
 (flet ((%cadr (x)
          (+ x 1))
