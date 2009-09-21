@@ -8,6 +8,13 @@
   (if list
       (cons (funcall f (car list)) (%mapcar f (cdr list)))))
 
+(flet ((%cadr (x)
+         (+ x 1))
+       (%caddr (x)
+         (%cadr x)))
+  (is 2 (%cadr 1))
+  (is 20 (%caddr '(10 20 30))))
+
 (defun %mapcar-test (fun args)
   (%mapcar (lambda (x) (+ x 1)) args))
 (is 9 (let ((x (%mapcar-test #'print '(1 2 3))))

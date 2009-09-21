@@ -55,9 +55,9 @@ tailcall
              ;; TODO 1 つだけじゃない
              (objectify-setq (cadr form) (caddr form) r f))
           (flet
-              )
+              (objectify-flet (cadr form) (cddr form) r f))
           (labels
-              )
+              (objectify-labels (cadr form) (cddr form) r f))
           (eval-when
               (objectify-eval-when (cadr form) (cddr form) r f))
           (chimacho::defun
@@ -71,6 +71,22 @@ tailcall
           (t (objectify-application (car form) (cdr form) r f))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun objectify-flet (flet-form body-form r f)
+  (let* ((fnames (mapcar (lambda (form)
+                           (let ((name (car form)))
+                             (cons name (gensym (symbol-name name)))))
+                         flet-form))
+         (fdefs (mapcar (lambda (fnames form)
+                          (make-defun (cdr fnames)
+                                      (cadr form)
+                                      (objectify-progn
+                                       (cddr form)
+                                       (extend-r r (cadr form)) f)))
+                        fnames flet-form))
+         (new-f (extend-f f fnames))
+         (body (objectify-progn body-form r new-f)))
+    (make-flet fdefs body)))
+
 (defun objectify-setq (symbol value-form r f)
   (ecase (var-kind symbol r f)
     (:local
@@ -168,11 +184,20 @@ tailcall
 
 (defun objectify-application (fun args r f)
   (if (symbolp fun)
-      (objectify-application-symbol fun args r f)
+      (if (assoc fun f)
+          (objectify-application-local-function fun args r f)
+          (objectify-application-symbol fun args r f))
       (if (and (consp fun)
                (eq (car fun) 'lambda))
           (objectify-application-lambda fun args r f)
           (error "~a is not applicable." fun))))
+
+(defun objectify-application-local-function (fun args r f)
+  (make-regular-application
+   (make-local-function (cdr (assoc fun f)))
+   (list-to-arguments (mapcar (lambda (x)
+                                (objectify x r f))
+                              args))))
 
 (defun objectify-application-symbol (fun args r f)
   (let ((fun (if (eq *package* (symbol-package fun))
@@ -484,6 +509,28 @@ tailcall
                             (funcall body :東京ミュウミュウ-metamorphose!
                                      (cons flat-function outers)))
                    (make-extracted-lambda name)))
+              (t (let ((ret (apply super message args)))
+                   (if (eq ret super) self ret))))))))
+
+(defun make-flet (fdefs body)
+  (let ((super (make-program :fdefs fdefs :body body))
+        self)
+    (setq self
+          (lambda (message &rest args)
+            (case message
+              (:東京ミュウミュウ-metamorphose!
+                 (let ((fdefs (funcall self :get :fdefs))
+                       (body  (funcall self :get :body))
+                       (outers (car args)))
+                   (mapcar (lambda (fdef)
+                             (funcall (car outers)
+                                      :add
+                                      :inner-functions
+                                      (funcall fdef
+                                               :東京ミュウミュウ-metamorphose!
+                                               outers)))
+                           fdefs)
+                   (funcall body :東京ミュウミュウ-metamorphose! outers)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1109,6 +1156,11 @@ tailcall
 
 (defun extend-r (r vars)
   (cons vars r))
+
+(defun extend-f (f flet-gensym)
+  (if flet-gensym
+      (extend-f (cons (car flet-gensym) f) (cdr flet-gensym))
+      f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun parrot-compile-file (file &optional
