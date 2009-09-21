@@ -31,6 +31,7 @@ end:
         .return($P0)
 .end
 
+## TODO nickname
 .sub find_package
         .param pmc name
         .local pmc all_packages
@@ -86,9 +87,9 @@ end:
         say "==== start compiler/a.pir ===="
         load_bytecode "compiler/a.pir"
         say "==== end compiler/a.pir ===="
-##        say "==== start compiler/parrot-compiler.pir ===="
-##        load_bytecode "compiler/parrot-compiler.pir"
-##        say "==== end compiler/parrot-compiler.pir ===="
+        say "==== start compiler/parrot-compiler.pir ===="
+        load_bytecode "compiler/parrot-compiler.pir"
+        say "==== end compiler/parrot-compiler.pir ===="
 .end
 
 .sub '' :anon :load :init
@@ -142,12 +143,14 @@ end:
         use_list = getattribute cl_user, 'use-list'
         push use_list, common_lisp_package
 
+        .local pmc keyword_package
+        keyword_package = make_package("KEYWORD")
+
         .local pmc chimacho
         chimacho = make_package("CHIMACHO")
         use_list = getattribute chimacho, 'use-list'
         push use_list, common_lisp_package
 .end
 
-## TODO nickname
 
 .include "common-lisp.pir"
