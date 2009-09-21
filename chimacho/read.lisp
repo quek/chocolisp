@@ -1,16 +1,5 @@
-(chimacho::in-package "CHIMACHO")
-
-(defun list (&rest list)
-  list)
-
-(defmacro when (test &rest form)
-  (list 'if test (cons 'progn form)))
-
-(defmacro unless (test &rest form)
-  `(if ,test nil (progn ,@form)))
-
-(defun symbolp (x)
-  (eq 'symbol (type-of x)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setq *package* (find-package "CHIMACHO")))
 
 (defun skip-whitespace (in)
   (let ((c (peek-char in)))

@@ -18,7 +18,7 @@ tailcall
 (declaim (optimize (debug 3) (safety 3)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (load "chimacho-package.lisp"))
+  (load "/home/ancient/letter/parrot/chocolisp/compiler/chimacho-package.lisp"))
 
 (defpackage :chocolisp.compiler
     (:use :common-lisp))
@@ -64,8 +64,6 @@ tailcall
               (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
           (chimacho::defmacro
               (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
-          (chimacho::in-package
-             (objectify-in-package (cadr form)))
           (chimacho::defvar
               (objectify-defvar (cadr form) (caddr form) r f))
           (t (objectify-application (car form) (cdr form) r f))))))
@@ -112,20 +110,23 @@ tailcall
   (%objectify-labels nil labels-form body-form r f))
 
 (defun objectify-setq (symbol value-form r f)
-  (ecase (var-kind symbol r f)
-    (:local
-       (make-local-assignment symbol (objectify value-form r f)))
-    (:lexical
-       (make-lexical-assignment symbol (objectify value-form r f)))
-    (:dynamic
-       (make-dynamic-assignment symbol (objectify value-form r f)))))
+  (if (eq 'cl:*package* symbol)
+      (make-change-package value-form
+       (make-dynamic-assignment symbol (objectify value-form r f)))
+      (ecase (var-kind symbol r f)
+        (:local
+           (make-local-assignment symbol (objectify value-form r f)))
+        (:lexical
+           (make-lexical-assignment symbol (objectify value-form r f)))
+        (:dynamic
+           (make-dynamic-assignment symbol (objectify value-form r f))))))
 
 (defun objectify-defvar (symbol value-form r f)
   (set-info symbol :kind :special)
   (make-defvar symbol (objectify value-form r f)))
 
 (defun objectify-eval-when (situations form r f)
-  (make-eval-when  situations (objectify-progn form r f)))
+  (make-eval-when situations (objectify-progn form r f) (cons 'progn form)))
 
 (defun objectify-quotation (value)
   (make-constant value))
@@ -201,10 +202,6 @@ tailcall
           (objectify (car body) r f)
           (make-progn (objectify (car body) r f)
                       (objectify-progn (cdr body) r f)))))
-
-(defun objectify-in-package (name)
-  (setq *package* (find-package name))
-  (make-in-package name))
 
 (defun objectify-application (fun args r f)
   (if (symbolp fun)
@@ -334,7 +331,7 @@ tailcall
               (:pir
                  (let ((var (funcall self :get :var))
                        (value (next-var)))
-                   (prt "~a = dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s)"
+                   (prt "~a = get_dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s)"
                         value
                         (parrot-var var)
                         (package-name (symbol-package var))
@@ -374,7 +371,6 @@ tailcall
               (:pir
                  (let ((var (parrot-var (funcall self :get :var)))
                        (value (funcall (funcall self :get :form) :pir)))
-                   (prt "~a = ~a" var value)
                    (prt "store_lex '~a', ~a" var value)
                    value))
               (t (let ((ret (apply super message args)))
@@ -387,11 +383,15 @@ tailcall
           (lambda (message &rest args)
             (case message
               (:pir
-                 (let ((var (funcall self :get :var))
-                       (form (funcall self :get :form)))
-                   (let ((value (funcall form :pir)))
-                     (prt "store_dynamic_lex '~a', ~a" (parrot-var var) value)
-                     value)))
+                 (let* ((var (funcall self :get :var))
+                        (form (funcall self :get :form))
+                        (value (funcall form :pir)))
+                   (prt "set_dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s, ~a)"
+                        (parrot-var var)
+                        (package-name (symbol-package var))
+                        (symbol-name var)
+                        value)
+                   value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -726,44 +726,57 @@ tailcall
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-in-package (name)
-  (let ((super (make-program :name name))
+(defun make-change-package (name setq-form)
+  (let ((super (make-program :name name :setq-form setq-form))
+        self)
+    (setq self
+          (lambda (message &rest args)
+            (case message
+              (:東京ミュウミュウ-metamorphose!
+                 (let ((setq-form (funcall self :get :setq-form))
+                       (outers (car args)))
+                   (funcall (car outers) :add :inner-functions
+                            self)
+                   setq-form))
+              (:pir
+                 (let ((name (funcall self :get :name)))
+                   (prt-top ".namespace [ ~s ]~%" (package-name (eval name)))))
+              (t (let ((ret (apply super message args)))
+                   (if (eq ret super) self ret))))))))
+
+(defun make-eval-when (situations form raw-form)
+  (let ((super (make-program :situations situations :form form
+                             :raw-form raw-form))
         self)
     (setq self
           (lambda (message &rest args)
             (case message
               (:toplevelp t)
-              (:pir
-                 (let ((name (funcall self :get :name)))
-                   (prt-top ".namespace [ ~s ]~%" name)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-eval-when (situations form)
-  (let ((super (make-program :situations situations :form form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
+              (:東京ミュウミュウ-metamorphose!
                  (let* ((situations (funcall self :get :situations))
                         (form (funcall self :get :form))
-                        (modifiers (cons ":anon" nil)))
-                   (when (member :compile-toplevel situations)
-                     (eval form))
+                        (raw-form (funcall self :get :raw-form))
+                        (modifiers nil))
+                   (if (member :compile-toplevel situations)
+                       (eval raw-form))
                    (if (member :load-toplevel situations)
                        (setq modifiers (cons ":load" modifiers)))
                    (if (member :execute situations)
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
-                       (funcall (make-flat-function (gensym "init")
+                       (let ((fun (make-flat-function (gensym "eval-when")
                                                     nil
                                                     form
                                                     nil
                                                     nil
                                                     nil
-                                                    modifiers)
-                                :pir))))
+                                                    (cons ":anon" modifiers))))
+                         (funcall fun :set :body
+                                  (funcall form
+                                           :東京ミュウミュウ-metamorphose!
+                                           (cons fun nil)))
+                         fun)
+                       (make-constant nil))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1309,5 +1322,6 @@ tailcall
                       :wait t
                       :output *standard-output*))
 
+;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/chimacho/read.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/parrot-compiler.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")

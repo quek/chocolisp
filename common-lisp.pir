@@ -79,10 +79,38 @@ true:
         .return(t)
 .end
 
+.sub 'FIND-PACKAGE'
+        .param pmc x
+        $P0 = find_package(x)
+        .return(x)
+.end
+
 .sub 'STRING='
         .param pmc x
         .param pmc y
         eq_str x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'STRING<'
+        .param pmc x
+        .param pmc y
+        lt_str x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'STRING<='
+        .param pmc x
+        .param pmc y
+        le_str x, y, true
         .nil
         .return(nil)
 true:

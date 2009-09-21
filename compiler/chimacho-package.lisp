@@ -2,10 +2,9 @@
     (:use :cl)
   (:shadow #:defun
            #:defmacro
-           #:defvar
-           #:in-package))
+           #:defvar))
 
-(cl:in-package :chimacho)
+(in-package :chimacho)
 
 (cl:defun defun (&rest rest)
   (cons 'defun rest))
@@ -16,8 +15,4 @@
 
 (cl:defmacro defvar (&whole whole &rest rest)
   (declare (ignore rest))
-  whole)
-
-(cl:defmacro in-package (&whole whole string-designator)
-  (declare (ignore string-designator))
   whole)

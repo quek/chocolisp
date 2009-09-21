@@ -16,11 +16,18 @@
         setattribute self, 'name', str
 .end
 
-.sub 'find-symbol' :method
+.sub 'find-external-symbol' :method
         .param string name
         .local pmc external
         external = getattribute self, 'external-symbols'
         $P0 = external[name]
+        .return($P0)
+.end
+
+.sub 'find-symbol' :method
+        .param string name
+        .local pmc external
+        $P0 = self.'find-external-symbol'(name)
         $I0 = isnull $P0
         if $I0 goto l1
         .return($P0)

@@ -4,7 +4,7 @@
 .include "package.pir"
 .include "symbol.pir"
 .include "cons.pir"
-.include "chimacho.pir"
+.include "chimacho/chimacho.pir"
 
 .namespace []
 
@@ -60,7 +60,7 @@ end:
         .return(package)
 .end
 
-.sub dynamic_scope_value
+.sub get_dynamic_scope_value
         .param string var
         .param pmc package
         .param pmc symol_name
@@ -71,6 +71,23 @@ end:
         $P0 = getattribute $P0, 'value'
 end:
         .return($P0)
+.end
+
+.sub set_dynamic_scope_value
+        .param string var
+        .param pmc package_name
+        .param pmc symol_name
+        .param pmc value
+        .local pmc package, symbol
+        $P0 = find_dynamic_lex var
+        if_null $P0, NOTFOUND
+        store_dynamic_lex var, value
+        .return(value)
+NOTFOUND:
+        package = find_package(package_name)
+        symbol = package.'intern'(symol_name)
+        setattribute symbol, 'value', value
+        .return(value)
 .end
 
 .namespace [ "CHOCO" ]
