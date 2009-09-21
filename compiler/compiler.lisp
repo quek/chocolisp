@@ -624,10 +624,8 @@ tailcall
             (case message
               (:pir
                  (let ((first (funcall self :get :first))
-                       (rest  (funcall self :get :rest))
-                       (var (next-var)))
-                   (prt "~a = ~a" var (funcall first :pir))
-                   (cons var (funcall rest :pir))))
+                       (rest  (funcall self :get :rest)))
+                   (cons (funcall first :pir) (funcall rest :pir))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1096,8 +1094,7 @@ tailcall
   (typecase atom
     (string
        (let ((var (next-var)))
-         (prt "~a = new ~s" var "String")
-         (prt "~a = utf8:unicode:~s" var atom)
+         (prt "~a = box utf8:unicode:~s" var atom)
          var))
     (symbol
        (pir-symbol atom))
