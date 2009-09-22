@@ -1300,9 +1300,13 @@ tailcall
                                   :if-exists :supersede)
       (let ((*pir-stream* (make-broadcast-stream *pir-stream*
                                                  *standard-output*)))
-        (put-common-header)
         (let ((*package* *package*))
+          (put-common-header)
           (read-loop in))))))
+
+(defun put-common-header ()
+  (prt-top ".HLL \"chocolisp\"~%"))
+  ;;(prt-top ".namespace [~s]~%" (package-name *package*)))
 
 (defun compile-pir-to-pbc (pir-file pbc-file)
   (sb-ext:run-program "parrot"
@@ -1310,9 +1314,6 @@ tailcall
                       :search t
                       :wait t
                       :output *standard-output*))
-
-(defun put-common-header ()
-  (format  *pir-stream* ".HLL \"chocolisp\"~%~%"))
 
 (defun compile-and-run (file)
   (parrot-compile-file file)
