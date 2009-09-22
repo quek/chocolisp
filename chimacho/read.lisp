@@ -1,69 +1,65 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (setq *package* (find-package "CHIMACHO")))
+(in-package "CHIMACHO")
 
-(defun skip-whitespace (in)
-  (let ((c (%peek-char in)))
-    (if (string< c " ")
-        (progn (%read-char in)
-               (skip-whitespace in)))))
-
-(defun read (in)
+(defun $read (in)
   (skip-whitespace in)
-  (let ((c (%peek-char in)))
+  (print
+  (let ((c ($peek-char in)))
     (if c
         (if (string= "(" c)
             (read-list in)
             (if (string= ";")
                 (progn
-                  (%read-line in)
-                  (read in))
+                  ($read-line in)
+                  ($read in))
                 (read-atom))))))
+  )
+
+(defun skip-whitespace (in)
+  (let ((c ($peek-char in)))
+    (if (string<= c " ")
+        (progn ($read-char in)
+               (skip-whitespace in)))))
 
 (defun read-list (in)
-  (%read-char in)                        ; skip ;
+  ($read-char in)                        ; skip ;
   (%read-list in nil))
 
 (defun %read-list (in acc)
   (skip-whitespace in)
-  (let ((c (%peek-char in)))
+  (let ((c ($peek-char in)))
     (if (string= c ")")
-        (reverse acc)
+        ($reverse acc)
         (if (string= c "(")
             (%read-list in (cons (read-list in) acc))
             (if (string= c ";")
-                (progn (read-line in)
+                (progn ($read-line in)
                        (%read-list in acc))
                 (%read-list in (cons (read-atom in) acc)))))))
 
 (defun read-atom (in)
   (skip-whitespace in)
-  (let ((c (%peek-char in)))
+  (let ((c ($read-char in)))
     (if (string= c "\"")
-        (read-string in)
-        (read-number in))))
+        (read-string in "")
+        (if (string< c "0")
+            (read-symbol in c "" nil t)
+            (if (string< "9" c)
+                (read-symbol in c "" nil t)
+                (read-number in c))))))
 
-(defun read-string (in)
-  (read-char in)                        ; skip "
-  (%read-string in ""))
-
-(defun %read-string (in acc)
-  (let ((c (read-char in)))
+(defun read-string (in acc)
+  (print 'read-string)
+  (print
+  (let ((c ($read-char in)))
     (if (string= c "\"")
         acc
         (if (string= c "\\")
-            (%read-string in (string+ acc (read-char in)))
-            (%read-string in (string+ acc c))))))
-
-(defun read-atom (in)
-  (let ((c (read-char in)))
-    (if (string<= "0" c)
-        (if (string<= c "9")
-            (read-number in c)
-            (read-symbol in c "" nil t))
-        (read-symbol in c "" nil t))))
+            (read-string in (string+ acc ($read-char in)))
+            (read-string in (string+ acc c))))))
+  )
 
 (defun read-number (in acc)
-  (let ((c (read-char in)))
+  (let ((c ($read-char in)))
     (if c
         (if (string<= c " ")
             (string-to-number acc)
@@ -71,7 +67,7 @@
         (string-to-number acc))))
 
 (defun read-symbol (in acc1 acc2 packagep exportp)
-  (let ((c (read-char in)))
+  (let ((c ($read-char in)))
     (if c
         (if (string<= c " ")
             (string-to-symbol acc1 acc2 packagep exportp)
@@ -87,6 +83,6 @@
 (defun string-to-symbol (acc1 acc2 packagep exportp)
   (if packagep
       (if exportp
-          (find-export-symbol acc1 acc2)
-          (intern acc2 acc1))
-      (intern acc1 *packgae*)))
+          ($find-export-symbol acc1 acc2)
+          ($intern acc2 (find-package acc1)))
+      ($intern acc1 *package*)))

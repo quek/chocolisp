@@ -24,67 +24,64 @@ true:
 
 .sub 'OPEN-INPUT-FILE'
         .param string path
-        .tailcall '%OPEN'(path, "r")
+        .tailcall '$OPEN'(path, "r")
 .end
 
 .sub 'OPEN-OUTPUT-FILE'
         .param string path
-        .tailcall '%OPEN'(path, "w")
+        .tailcall '$OPEN'(path, "w")
 .end
 
-.sub '%OPEN'
+.sub '$OPEN'
         .param string path
         .param string mode
         $P0 = open path, mode
         .return($P0)
 .end
 
-.sub '%CLOSE'
+.sub '$CLOSE'
         .param pmc fh
         close fh
 .end
 
-.sub '%READ-CHAR'
+.sub '$READ-CHAR'
         .param pmc fh
         $S0 = read fh, 1
-        $I0 = $S0
-        if $I0 goto ok
+        eq_str $S0, "", eof
+        .return($S0)
+eof:
         .nil
         .return(nil)
-ok:
-        .return($S0)
 .end
 
-.sub '%READ-LINE'
+.sub '$READ-LINE'
         .param pmc fh
         $S0 = readline fh
-        $I0 = $S0
-        if $I0 goto ok
+        eq_str $S0, "", eof
+        .return($S0)
+eof:
         .nil
         .return(nil)
-ok:
-        .return($S0)
 .end
 
-.sub '%PEEK-CHAR'
+.sub '$PEEK-CHAR'
         .param pmc fh
-        $S0 = peek $P0
-        $I0 = $S0
-        if $I0 goto ok
+        $S0 = peek fh
+        eq_str $S0, "", eof
+        .return($S0)
+eof:
         .nil
         .return(nil)
-ok:
-        .return($S0)
 .end
 
-.sub '%WRITE-STRING'
+.sub '$WRITE-STRING'
         .param pmc str
         .param pmc fh
         print fh, str
         .return(str)
 .end
 
-.sub '%TERPRI'
+.sub '$TERPRI'
         .param pmc fh
         print fh, "\n"
         .nil
@@ -111,12 +108,26 @@ end:
         .return($I0)
 .end
 
-.sub 'ERROR'
+.sub '$CHAR'
+        .param string str
+        .param int idx
+        $I0 = idx + 1
+        $S0 = substr str, idx, $I0
+        .return($S0)
+.end
+
+.sub '$CHAR-CODE'
+        .param string str
+        $I0 = ord str
+        .return($I0)
+.end
+
+.sub '$ERROR'
         .param string x
         die x
 .end
 
-.sub 'FIND-EXPORT-SYMBOL'
+.sub '$FIND-EXPORT-SYMBOL'
         .param string package
         .param string name
         $P0 = find_package(package)
@@ -127,4 +138,16 @@ error:
         $S0 = name . " is not found in "
         $S0 .= package
         die $S0
+.end
+
+.sub '$INTERN'
+        .param string name
+        .param pmc package
+        $S0 = upcase name
+        say "__$INTERN"
+        say $S0
+        say package
+        say "^^$INTERN"
+        $P0 = package.'intern'($S0)
+        .return($P0)
 .end

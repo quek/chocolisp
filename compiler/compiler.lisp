@@ -15,8 +15,7 @@
           (quote
              (objectify-quotation (cadr form)))
           (if
-              (objectify-if (cadr form) (caddr form) (cadddr form)
-                            r f))
+              (objectify-if (cadr form) (caddr form) (cadddr form) r f))
           (let
               (objectify-let (cadr form) (cddr form) r f))
           (let*
@@ -46,11 +45,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun objectify-flet (flet-form body-form r f)
-  (let* ((fnames (mapcar (lambda (form)
+  (let* ((fnames ($mapcar (lambda (form)
                            (let ((name (car form)))
                              (cons name (gensym (symbol-name name)))))
                          flet-form))
-         (fdefs (mapcar (lambda (fnames form)
+         (fdefs ($mapcar (lambda (fnames form)
                           (make-flat-function
                            (cdr fnames)
                            (cadr form)
@@ -79,7 +78,7 @@
          (cdr labels-form)
          body-form
          r
-         (extend-f f (list (cons label gensym-label)))))
+         (extend-f f ($list (cons label gensym-label)))))
       (make-flet acc (objectify-progn body-form r f))))
 
 (defun objectify-labels (labels-form body-form r f)
@@ -122,13 +121,13 @@
            (objectify else r f)))
 
 (defun objectify-let (bindings body r f)
-  (let* ((bindings (mapcar (lambda (x)
+  (let* ((bindings ($mapcar (lambda (x)
                              (if (atom x)
                                  (cons x nil)
                                  x))
                            bindings))
-         (vars (mapcar #'car bindings))
-         (values  (list-to-arguments (mapcar (lambda (x)
+         (vars ($mapcar #'car bindings))
+         (values  (list-to-arguments ($mapcar (lambda (x)
                                                (objectify (cadr x) r f))
                                              bindings))))
     (make-let vars
@@ -136,12 +135,12 @@
               (objectify-progn body (extend-r r vars) f))))
 
 (defun objectify-let* (bindings body r f)
-  (let* ((bindings (mapcar (lambda (x)
+  (let* ((bindings ($mapcar (lambda (x)
                              (if (atom x)
                                  (cons x nil)
                                  x))
                            bindings))
-         (vars (mapcar #'car bindings)))
+         (vars ($mapcar #'car bindings)))
     (make-let* (%make-let*-bindings bindings r f nil)
                (objectify-progn body (extend-r r vars) f))))
 
@@ -153,12 +152,12 @@
       (if (eq *package* (symbol-package name))
           (make-extracted-lambda name)
           (make-global-function-reference name))
-      (if (and (consp name)
+      (if (and ($consp name)
                (eq 'lambda (car name)))
           (let ((vars (cadr name))
                 (body (cddr name)))
             (make-lambda vars (objectify-progn body (extend-r r vars) f)))
-          (error (string+ "Invalid function name " name)))))
+          ($error (string+ "Invalid function name " name)))))
 
 (defun objectify-defun (name lambda-list body r f)
   (make-defun name
@@ -184,15 +183,15 @@
       (if (assoc fun f)
           (objectify-application-local-function fun args r f)
           (objectify-application-symbol fun args r f))
-      (if (and (consp fun)
+      (if (and ($consp fun)
                (eq (car fun) 'lambda))
           (objectify-application-lambda fun args r f)
-          (error (string+ fun " is not applicable.")))))
+          ($error (string+ fun " is not applicable.")))))
 
 (defun objectify-application-local-function (fun args r f)
   (make-regular-application
    (make-local-function (cdr (assoc fun f)))
-   (list-to-arguments (mapcar (lambda (x)
+   (list-to-arguments ($mapcar (lambda (x)
                                 (objectify x r f))
                               args))))
 
@@ -201,7 +200,7 @@
                  (make-local-function fun)
                  (make-global-function fun)))
         (objected-args (list-to-arguments
-                        (mapcar (lambda (x)
+                        ($mapcar (lambda (x)
                                   (objectify x r f))
                                 args))))
     (make-regular-application fun objected-args)))
@@ -211,7 +210,7 @@
                                        (cddr lambda-form)
                                        r f))
         (objected-args (list-to-arguments
-                        (mapcar (lambda (x) (objectify x r f))
+                        ($mapcar (lambda (x) (objectify x r f))
                                 args))))
     (make-lambda-application lambda-form objected-args)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -536,7 +535,7 @@
                  (let ((fdefs (funcall self :get :fdefs))
                        (body  (funcall self :get :body))
                        (outers (car args)))
-                   (mapcar (lambda (fdef)
+                   ($mapcar (lambda (fdef)
                              (funcall (car outers)
                                       :add :inner-functions
                                       (funcall fdef
@@ -949,21 +948,21 @@
                                 modifiers)
                        (prt-top ".sub " (parrot-sub-name name) modifiers))
                    (pir-lambda-list lambda-list)
-                   (mapc (lambda (var)
-                           (if (special-var-p var)
-                               (prt-push-dynamic var)))
-                         arguments)
-                   (mapc (lambda (var)
-                           (let ((var (parrot-var var)))
-                             (prt ".lex '" var "', " var)))
-                         lexical-store)
+                   ($mapcar (lambda (var)
+                              (if (special-var-p var)
+                                  (prt-push-dynamic var)))
+                            arguments)
+                   ($mapcar (lambda (var)
+                              (let ((var (parrot-var var)))
+                                (prt ".lex '" var "', " var)))
+                            lexical-store)
                    (let ((ret (funcall body :pir)))
                      (prt ".return(" ret ")"))
                    (prt-top ".end")
                    (new-line)
-                   (mapc (lambda (x)
-                           (funcall x :pir))
-                         inner-functions)))
+                   ($mapcar (lambda (x)
+                              (funcall x :pir))
+                            inner-functions)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1004,18 +1003,18 @@
                                 modifiers)
                        (prt-top ".sub " (parrot-sub-name name) modifiers))
                    (funcall bindings :pir)
-                   (mapc (lambda (var)
-                           (prt ".lex '"
-                                (parrot-var var)
-                                "', " (parrot-var var)))
-                         lexical-store)
+                   ($mapcar (lambda (var)
+                              (prt ".lex '"
+                                   (parrot-var var)
+                                   "', " (parrot-var var)))
+                            lexical-store)
                    (let ((ret (funcall body :pir)))
                      (prt ".return(" ret ")"))
                    (prt-top ".end")
                    (new-line)
-                   (mapc (lambda (x)
-                           (funcall x :pir))
-                         inner-functions)))
+                   ($mapcar (lambda (x)
+                              (funcall x :pir))
+                            inner-functions)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1121,11 +1120,11 @@
 (defun parrot-var (lisp-var)
   (with-output-to-string (out)
     (write-string "p_" out)
-    (map nil (lambda (c)
+    ($map-string (lambda (c)
                (if (alpha-char-p c)
                    (write-char c out)
-                   (princ (char-code c) out)))
-         (prin1-to-string lisp-var))))
+                   (princ ($char-code c) out)))
+             (prin1-to-string lisp-var))))
 
 (defun parrot-sub-name (symbol)
   (if (symbol-package symbol)
@@ -1133,22 +1132,22 @@
       (prin1-to-string (prin1-to-string symbol))))
 
 (defun prt (&rest args)
-  (%write-string "        " *pir-stream*)
+  ($write-string "        " *pir-stream*)
   (apply #'prt-top args))
 
 (defun prt-top (&rest args)
-  (mapcar (lambda (x)
-            (%write-string x *pir-stream*))
+  ($mapcar (lambda (x)
+            ($write-string x *pir-stream*))
           args)
   (new-line))
 
 (defun prt-label (label)
-  (%write-string label *pir-stream*)
-  (%write-string ":" *pir-stream*)
+  ($write-string label *pir-stream*)
+  ($write-string ":" *pir-stream*)
   (new-line))
 
 (defun new-line ()
-  (%terpri *pir-stream*))
+  ($terpri *pir-stream*))
 
 (defun prt-nil ()
   (let ((var (next-var)))
@@ -1275,11 +1274,44 @@
 (defun join (delimita list)
   (if list
       (let ((s (princ-to-string (car list))))
-        (mapcar (lambda (x)
+        ($mapcar (lambda (x)
                   (setq s (string+ s (string+ delimita (princ-to-string x)))))
                 (cdr list))
         s)
       ""))
+
+(defun $mapcar1 (f list)
+  (if list
+      (cons (funcall f (car list))
+            ($mapcar1 f (cdr list)))))
+
+(defun $mapcar (f list &rest rest)
+  (if list
+      (cons (apply f (cons (car list) ($mapcar1 #'car rest)))
+            (apply #'$mapcar f (cdr list) ($mapcar1 #'cdr rest)))))
+
+(defun $map-string (f string)
+  (if (= (length string) 0)
+      nil
+      (progn
+        (funcall f ($char string 0))
+        ($map-string f (subseq string 1)))))
+
+(defun $reverse (list)
+  (%$reverse list nil))
+
+(defun %$reverse (list acc)
+  (if list
+      (%$reverse (cdr list) (cons (car list) acc))
+      acc))
+
+(defun $list (&rest args)
+  args)
+
+(defun $consp (x)
+  (if (atom x)
+      nil
+      t))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun pir-file-name (file)
   (string+ (subseq file 0 (- (length file) 4)) "pir"))
@@ -1292,28 +1324,28 @@
     ))
 
 (defun %macroexpand (form)
-  (if (and (consp form)
+  (if (and ($consp form)
            (member (car form) '(defvar defun defmacro)))
       form
-      (if (and (consp form)
+      (if (and ($consp form)
                (eq 'in-package (car form)))
-          (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-                (list 'setq '*package*
-                      (list 'find-package (cadr form))))
+          ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
+                ($list 'setq '*package*
+                      ($list 'find-package (cadr form))))
           (let ((expanded-form (macroexpand-1 form)))
             (if (eq expanded-form form)
                 form
                 (%macroexpand expanded-form))))))
 
 (defun read-loop (in)
-  (let ((form (read in nil)))
+  (let ((form ($read in)))
     (when form
       (new-line)
-      (%write-string "=head2" *pir-stream*)
+      ($write-string "=head2" *pir-stream*)
       (new-line)
-      (%write-string (prin1-to-string form) *pir-stream*)
+      ($write-string (prin1-to-string form) *pir-stream*)
       (new-line)
-      (%write-string "=cut" *pir-stream*)
+      ($write-string "=cut" *pir-stream*)
       (new-line)
       (let ((object (objectify form nil nil)))
         (if (funcall object :toplevelp)
@@ -1328,7 +1360,7 @@
                                   '(":anon" ":init" ":load"))))
               (setq object (funcall object
                                     :東京ミュウミュウ-metamorphose!
-                                    (list flat-function)))
+                                    ($list flat-function)))
               (funcall flat-function :set :body object)
               (setq object flat-function)))
         (funcall object :pir))
@@ -1339,11 +1371,11 @@
         (*pir-stream* (open-output-file pir-file)))
     (let ((*pir-stream* (make-broadcast-stream *pir-stream*
                                                *standard-output*)))
-        (let ((*package* *package*))
-          (put-common-header)
-          (read-loop in)))
-    (close *pir-stream*)
-    (close in)))
+      (let ((*package* *package*))
+        (put-common-header)
+        (read-loop in)))
+    ($close *pir-stream*)
+    ($close in)))
 
 (defun put-common-header ()
   (prt-top ".HLL \"chocolisp\"")

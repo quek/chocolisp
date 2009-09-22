@@ -28,24 +28,36 @@
 (defun open-output-file (file)
   (open file :direction :output :if-exists :supersede))
 
-(defun %read-char (stream)
+(defun $read-char (stream)
   (read-char stream nil))
 
-(defun %read-line (stream)
+(defun $read-line (stream)
   (read-line stream nil))
 
-(defun %write-string (str stream)
+(defun $write-string (str stream)
   (write-string str stream))
 
-(defun %terpri (stream)
+(defun $terpri (stream)
   (terpri stream))
 
-(defun %close (stream)
+(defun $close (stream)
   (close stream))
 
 (defun string+ (&rest args)
   (apply #'concatenate 'string
          (mapcar #'princ-to-string args)))
+
+(defun $error (message)
+  (error message))
+
+(defun $char (str i)
+  (char str i))
+
+(defun $char-code (c)
+  (char-code c))
+
+(defun $read (stream)
+  (read stream nil))
 
 (defun is (x y)
   (unless (equal x y)

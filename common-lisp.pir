@@ -75,9 +75,11 @@ true:
         .nil
         $I0 = rest
         if $I0 goto rest_supplied
-        $P0 = 'ATOM'(arg)
-        eq_addr $P0, nil, error
-        .tailcall f(arg :flat)
+        eq_addr arg, nil, no_arg
+        $I0 = isa arg, ["CHOCO";"CONS"]
+        unless $I0 goto error
+        $P0 = list_to_array(arg)
+        .tailcall f($P0 :flat)
 rest_supplied:
         .local pmc array
         array = new 'ResizablePMCArray'
@@ -94,6 +96,8 @@ end:
         $P0 = list_to_array($P0)
         array.'append'($P0)
         .tailcall f(array :flat)
+no_arg:
+        .tailcall f()
 error:
         die "arg is atom."
 .end
@@ -155,13 +159,15 @@ true:
 
 .sub 'FIND-PACKAGE'
         .param pmc x
-        $P0 = find_package(x)
-        .return(x)
+        $S0 = x
+        $S0 = upcase $S0
+        $P0 = find_package($S0)
+        .return($P0)
 .end
 
 .sub 'STRING='
-        .param pmc x
-        .param pmc y
+        .param string x
+        .param string y
         eq_str x, y, true
         .nil
         .return(nil)
@@ -171,8 +177,8 @@ true:
 .end
 
 .sub 'STRING<'
-        .param pmc x
-        .param pmc y
+        .param string x
+        .param string y
         lt_str x, y, true
         .nil
         .return(nil)
@@ -182,8 +188,8 @@ true:
 .end
 
 .sub 'STRING<='
-        .param pmc x
-        .param pmc y
+        .param string x
+        .param string y
         le_str x, y, true
         .nil
         .return(nil)

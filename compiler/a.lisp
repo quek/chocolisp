@@ -1,5 +1,4 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (setq *package* (find-package "CHIMACHO")))
+(in-package "CHIMACHO")
 
 (let ((x 0))
   (defun get-x ()

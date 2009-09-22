@@ -16,6 +16,15 @@
         setattribute self, 'name', str
 .end
 
+.sub get_string :vtable
+        $S0 = "#<PACKAGE \""
+        $P1 = getattribute self, 'name'
+        $S1 = $P1
+        $S0 .= $S1
+        $S0 .= "\">"
+        .return($S0)
+.end
+
 .sub 'find-external-symbol' :method
         .param string name
         .local pmc external

@@ -130,6 +130,11 @@ NOTFOUND:
 
         $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
         $P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
+
+        $P0 = open "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"
+        $P1 = get_hll_global ["CHIMACHO"], "$READ"
+        $P2 = $P1($P0)
+        say $P2
 .end
 
 .sub '' :anon :load :init
