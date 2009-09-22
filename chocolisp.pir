@@ -112,6 +112,9 @@ NOTFOUND:
         say "==== start compiler/compiler.pir ===="
         load_bytecode "compiler/compiler.pir"
         say "==== end compiler/compiler.pir ===="
+
+        $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
+        $P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
 .end
 
 .sub '' :anon :load :init

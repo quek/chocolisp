@@ -1232,8 +1232,11 @@
       f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun pir-file-name (file)
+  (string+ (subseq file 0 (- (length file) 4)) "pir"))
+
 (defun parrot-compile-file (file)
-  (let ((pir-file (namestring (make-pathname :type "pir" :defaults file))))
+  (let ((pir-file (pir-file-name file)))
     ;;(pbc-file (namestring (make-pathname :type "pbc" :defaults file))))
     (compile-lisp-to-pir file pir-file)
     ;;(compile-pir-to-pbc pir-file pbc-file)
@@ -1272,16 +1275,15 @@
       (read-loop in))))
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
-  (with-open-file (in lisp-file)
-    (when (probe-file pir-file)
-      (delete-file pir-file))
-    (with-open-file (*pir-stream* pir-file :direction :output
-                                  :if-exists :supersede)
-      (let ((*pir-stream* (make-broadcast-stream *pir-stream*
-                                                 *standard-output*)))
+  (let ((in (open-input-file lisp-file))
+        (*pir-stream* (open-output-file pir-file)))
+    (let ((*pir-stream* (make-broadcast-stream *pir-stream*
+                                               *standard-output*)))
         (let ((*package* *package*))
           (put-common-header)
-          (read-loop in))))))
+          (read-loop in)))
+    (close *pir-stream*)
+    (close in)))
 
 (defun put-common-header ()
   (prt-top ".HLL \"chocolisp\"~%"))

@@ -26,6 +26,19 @@
                       :wait t
                       :output *standard-output*))
 
+(defun open-input-file (file)
+  (open file))
+
+(defun open-output-file (file)
+  (open file :direction :output :if-exists :supersede))
+
+(defun string+ (x y)
+  (concatenate 'string x y))
+
+(defun is (x y)
+  (unless (equal x y)
+    (error "[~a] is not [~a]." x y)))
+
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/chimacho/read.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/compiler.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")

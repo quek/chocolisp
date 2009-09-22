@@ -68,6 +68,34 @@ true:
         .return(t)
 .end
 
+.sub 'LENGTH' :multi('String')
+        .param pmc x
+        $I0 = x.'length'()
+        .return($I0)
+.end
+
+.sub 'LENGTH' :multi(["CHOCO";"CONS"])
+        .param pmc x
+        .nil
+        $I0 = 0
+loop:
+        eq_addr x, nil, end
+        $I0 += 1
+        x = getattribute x, 'cdr'
+        goto loop
+end:
+        .return($I0)
+.end
+
+.sub 'SUBSEQ' :multi('String')
+        .param pmc s
+        .param int start
+        .param int end
+        $S0 = s.'substr'(start, end)
+        .return($S0)
+.end
+
+
 .sub '='
         .param pmc x
         .param pmc y
@@ -166,4 +194,12 @@ end:
         print x
         print " "
         .return(x)
+.end
+
+##################################################################
+## dummy
+.sub 'MAKE-BROADCAST-STREAM'
+        .param pmc args :slurpy
+        $P0 = args[0]
+        .return($P0)
 .end
