@@ -291,3 +291,7 @@ end:
         $P0 = args[0]
         .return($P0)
 .end
+
+.sub 'PROCLAIM'
+        .param pmc x
+.end
