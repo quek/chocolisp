@@ -1058,8 +1058,10 @@ tailcall
             (case message
               (:pir
                  (let ((name (funcall self :get :name))
+                       (sub (next-var))
                        (var (next-var)))
-                   (prt ".const 'Sub' ~a = ~a" var (parrot-sub-name name))
+                   (prt ".const 'Sub' ~a = ~a" sub (parrot-sub-name name))
+                   (prt "~a = newclosure ~a" var sub)
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))

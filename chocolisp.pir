@@ -104,6 +104,11 @@ NOTFOUND:
         say "==== start compiler/a.pir ===="
         load_bytecode "compiler/a.pir"
         say "==== end compiler/a.pir ===="
+
+        say "==== start chimacho/read.pir ===="
+        load_bytecode "chimacho/read.pir"
+        say "==== end chimacho/read.pir ===="
+
         say "==== start compiler/parrot-compiler.pir ===="
         load_bytecode "compiler/parrot-compiler.pir"
         say "==== end compiler/parrot-compiler.pir ===="
