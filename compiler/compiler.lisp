@@ -1,29 +1,5 @@
-#|
-defun は .sub してるだけだが、
-.const 'Sub' $P1 = 'fun'
-を symbol-function に setf した方がいいのかな？
-(let ((*packgae* :baha)) とかした場合の挙動が不明。。。
-
-(compile-file "/tmp/a.lisp")
-:COMPILE-TOPLEVEL
-(load "/tmp/a.lisp")
-:EXECUTE  -> :load
-(load "/tmp/a")
-:LOAD-TOPLEVEL  -> :init
-ってこと？
-
-TODO
-tailcall
-|#
-(declaim (optimize (debug 3) (safety 3)))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (load "/home/ancient/letter/parrot/chocolisp/compiler/chimacho-package.lisp"))
-
-(defpackage :chocolisp.compiler
-    (:use :common-lisp))
-
-(in-package :chocolisp.compiler)
+  (setq *package* (find-package "CHIMACHO")))
 
 (defvar *pir-stream* *standard-output*)
 (defvar *var-counter*)
@@ -112,7 +88,7 @@ tailcall
 (defun objectify-setq (symbol value-form r f)
   (if (eq 'cl:*package* symbol)
       (make-change-package value-form
-       (make-dynamic-assignment symbol (objectify value-form r f)))
+                           (make-dynamic-assignment symbol (objectify value-form r f)))
       (ecase (var-kind symbol r f)
         (:local
            (make-local-assignment symbol (objectify value-form r f)))
@@ -765,12 +741,12 @@ tailcall
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
                        (let ((fun (make-flat-function (gensym "eval-when")
-                                                    nil
-                                                    form
-                                                    nil
-                                                    nil
-                                                    nil
-                                                    (cons ":anon" modifiers))))
+                                                      nil
+                                                      form
+                                                      nil
+                                                      nil
+                                                      nil
+                                                      (cons ":anon" modifiers))))
                          (funcall fun :set :body
                                   (funcall form
                                            :東京ミュウミュウ-metamorphose!
@@ -1211,7 +1187,7 @@ tailcall
             (prt ".param pmc ~a" (parrot-var (car lambda-list)))
             (pir-lambda-list (cdr lambda-list))))))
 
-(defparameter *info* nil)
+(defvar *info* nil)
 
 (defun get-info (object key)
   (assoc key (cdr (assoc object *info*))))
@@ -1258,16 +1234,19 @@ tailcall
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun parrot-compile-file (file)
   (let ((pir-file (namestring (make-pathname :type "pir" :defaults file))))
-        ;;(pbc-file (namestring (make-pathname :type "pbc" :defaults file))))
+    ;;(pbc-file (namestring (make-pathname :type "pbc" :defaults file))))
     (compile-lisp-to-pir file pir-file)
-  ;;(compile-pir-to-pbc pir-file pbc-file)
+    ;;(compile-pir-to-pbc pir-file pbc-file)
     ))
 
 (defun %macroexpand (form)
-  (let ((expanded-form (macroexpand-1 form)))
-    (if (eq expanded-form form)
-        form
-        (%macroexpand expanded-form))))
+  (if (and (consp form)
+           (member (car form) '(defvar defun defmacro)))
+      form
+      (let ((expanded-form (macroexpand-1 form)))
+        (if (eq expanded-form form)
+            form
+            (%macroexpand expanded-form)))))
 
 (defun read-loop (in)
   (let ((form (read in nil)))
@@ -1306,25 +1285,4 @@ tailcall
 
 (defun put-common-header ()
   (prt-top ".HLL \"chocolisp\"~%"))
-  ;;(prt-top ".namespace [~s]~%" (package-name *package*)))
-
-(defun compile-pir-to-pbc (pir-file pbc-file)
-  (sb-ext:run-program "parrot"
-                      (list "-o" pbc-file pir-file)
-                      :search t
-                      :wait t
-                      :output *standard-output*))
-
-(defun compile-and-run (file)
-  (parrot-compile-file file)
-  (locally (declare (optimize (speed 0)))
-    (sb-posix:chdir "/home/ancient/letter/parrot/chocolisp/"))
-  (sb-ext:run-program "parrot"
-                      (list "chocolisp.pir")
-                      :search t
-                      :wait t
-                      :output *standard-output*))
-
-;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/chimacho/read.lisp")
-;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/parrot-compiler.lisp")
-;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
+;;(prt-top ".namespace [~s]~%" (package-name *package*)))

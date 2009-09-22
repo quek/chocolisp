@@ -109,9 +109,9 @@ NOTFOUND:
         load_bytecode "chimacho/read.pir"
         say "==== end chimacho/read.pir ===="
 
-        say "==== start compiler/parrot-compiler.pir ===="
-        load_bytecode "compiler/parrot-compiler.pir"
-        say "==== end compiler/parrot-compiler.pir ===="
+        say "==== start compiler/compiler.pir ===="
+        load_bytecode "compiler/compiler.pir"
+        say "==== end compiler/compiler.pir ===="
 .end
 
 .sub '' :anon :load :init
