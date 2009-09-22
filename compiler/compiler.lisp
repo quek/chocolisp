@@ -265,7 +265,7 @@
             (case message
               (:東京ミュウミュウ-metamorphose!
                  (let ((var (funcall self :get :var)))
-                   (unless (member var
+                   (unless ($member var
                                    (collect-vars
                                     (funcall (caar args) :get :lambda-list)))
                      (set-lexical-var var (car args)))
@@ -753,11 +753,11 @@
                         (form (funcall self :get :form))
                         (raw-form (funcall self :get :raw-form))
                         (modifiers nil))
-                   (if (member :compile-toplevel situations)
+                   (if ($member :compile-toplevel situations)
                        (eval raw-form))
-                   (if (member :load-toplevel situations)
+                   (if ($member :load-toplevel situations)
                        (setq modifiers (cons ":load" modifiers)))
-                   (if (member :execute situations)
+                   (if ($member :execute situations)
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
                        (let ((fun (make-flat-function (gensym "eval-when")
@@ -1194,10 +1194,10 @@
 (defun set-lexical-var (var outers)
   (if (null outers)
       nil
-      (if (member var (collect-vars
+      (if ($member var (collect-vars
                        (funcall (car outers) :get :lambda-list)))
           (let ((lexical-store (funcall (car outers) :get :lexical-store)))
-            (unless (member var lexical-store)
+            (unless ($member var lexical-store)
               (funcall (car outers) :add :lexical-store var)))
           (set-lexical-var var (cdr outers)))))
 
@@ -1248,12 +1248,12 @@
 
 (defun var-kind (var r f)
   (declare (ignore f))
-  (if (member var (car r))
+  (if ($member var (car r))
       :local
       (labels ((f (x)
                  (if (endp x)
                      :dynamic
-                     (if (member var (car x))
+                     (if ($member var (car x))
                          :lexical
                          (f (cdr x))))))
         (f (cdr r)))))
@@ -1312,6 +1312,12 @@
   (if (atom x)
       nil
       t))
+
+(defun $member (item list)
+  (if list
+      (if (eq item (car list))
+          t
+          ($member item (cdr list)))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun pir-file-name (file)
   (string+ (subseq file 0 (- (length file) 4)) "pir"))
@@ -1324,18 +1330,18 @@
     ))
 
 (defun %macroexpand (form)
-  (if (and ($consp form)
-           (member (car form) '(defvar defun defmacro)))
-      form
-      (if (and ($consp form)
-               (eq 'in-package (car form)))
-          ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-                ($list 'setq '*package*
-                      ($list 'find-package (cadr form))))
-          (let ((expanded-form (macroexpand-1 form)))
-            (if (eq expanded-form form)
-                form
-                (%macroexpand expanded-form))))))
+  (if ($consp form)
+      (if ($member (car form) '(defvar defun defmacro))
+          form
+          (if (eq 'in-package (car form))
+              ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
+                     ($list 'setq '*package*
+                            ($list 'find-package (cadr form))))
+              (let ((expanded-form (macroexpand-1 form)))
+                (if (eq expanded-form form)
+                    form
+                    (%macroexpand expanded-form)))))
+      form))
 
 (defun read-loop (in)
   (let ((form ($read in)))
