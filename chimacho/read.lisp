@@ -2,30 +2,30 @@
   (setq *package* (find-package "CHIMACHO")))
 
 (defun skip-whitespace (in)
-  (let ((c (peek-char in)))
+  (let ((c (%peek-char in)))
     (if (string< c " ")
-        (progn (read-char in)
+        (progn (%read-char in)
                (skip-whitespace in)))))
 
 (defun read (in)
   (skip-whitespace in)
-  (let ((c (peek-char in)))
+  (let ((c (%peek-char in)))
     (if c
         (if (string= "(" c)
             (read-list in)
             (if (string= ";")
                 (progn
-                  (read-line in)
+                  (%read-line in)
                   (read in))
                 (read-atom))))))
 
 (defun read-list (in)
-  (read-char in)                        ; skip ;
+  (%read-char in)                        ; skip ;
   (%read-list in nil))
 
 (defun %read-list (in acc)
   (skip-whitespace in)
-  (let ((c (peek-char in)))
+  (let ((c (%peek-char in)))
     (if (string= c ")")
         (reverse acc)
         (if (string= c "(")
@@ -37,7 +37,7 @@
 
 (defun read-atom (in)
   (skip-whitespace in)
-  (let ((c (peek-char in)))
+  (let ((c (%peek-char in)))
     (if (string= c "\"")
         (read-string in)
         (read-number in))))

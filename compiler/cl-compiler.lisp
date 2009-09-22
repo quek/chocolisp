@@ -5,10 +5,6 @@
 
 (in-package :chimacho)
 
-(load (compile-file
-       (merge-pathnames "compiler.lisp" *load-truename*)))
-
-
 ;;(defun compile-pir-to-pbc (pir-file pbc-file)
 ;;  (sb-ext:run-program "parrot"
 ;;                      (list "-o" pbc-file pir-file)
@@ -32,8 +28,24 @@
 (defun open-output-file (file)
   (open file :direction :output :if-exists :supersede))
 
-(defun string+ (x y)
-  (concatenate 'string x y))
+(defun %read-char (stream)
+  (read-char stream nil))
+
+(defun %read-line (stream)
+  (read-line stream nil))
+
+(defun %write-string (str stream)
+  (write-string str stream))
+
+(defun %terpri (stream)
+  (terpri stream))
+
+(defun %close (stream)
+  (close stream))
+
+(defun string+ (&rest args)
+  (apply #'concatenate 'string
+         (mapcar #'princ-to-string args)))
 
 (defun is (x y)
   (unless (equal x y)

@@ -1,5 +1,5 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (setq *package* (find-package "CHIMACHO")))
+(declaim (optimize (debug 3) (safety 3)))
+(in-package "CHIMACHO")
 
 (defvar *pir-stream* *standard-output*)
 (defvar *var-counter*)
@@ -158,7 +158,7 @@
           (let ((vars (cadr name))
                 (body (cddr name)))
             (make-lambda vars (objectify-progn body (extend-r r vars) f)))
-          (error "Invalid function name ~s." name))))
+          (error (string+ "Invalid function name " name)))))
 
 (defun objectify-defun (name lambda-list body r f)
   (make-defun name
@@ -187,7 +187,7 @@
       (if (and (consp fun)
                (eq (car fun) 'lambda))
           (objectify-application-lambda fun args r f)
-          (error "~a is not applicable." fun))))
+          (error (string+ fun " is not applicable.")))))
 
 (defun objectify-application-local-function (fun args r f)
   (make-regular-application
@@ -274,7 +274,7 @@
               (:pir
                  (let ((var (funcall self :get :var))
                        (value (next-var)))
-                   (prt "~a = ~a" value (parrot-var var))
+                   (prt value " = " (parrot-var var))
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -292,8 +292,8 @@
                  self)
               (:pir
                  (let ((var (parrot-var (funcall self :get :var))))
-                   (prt ".local pmc ~a" var)
-                   (prt "~a = find_lex '~a'" var var)
+                   (prt ".local pmc " var)
+                   (prt var " = find_lex '" var "'")
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -307,11 +307,13 @@
               (:pir
                  (let ((var (funcall self :get :var))
                        (value (next-var)))
-                   (prt "~a = get_dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s)"
-                        value
+                   (prt value " = get_dynamic_scope_value('"
                         (parrot-var var)
-                        (package-name (symbol-package var))
-                        (symbol-name var))
+                        "', utf8:unicode:" 
+                        (prin1-to-string (package-name (symbol-package var)))
+                        ", utf8:unicode:"
+                        (prin1-to-string (symbol-name var))
+                        ")")
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -324,7 +326,7 @@
             (case message
               (:pir
                  (let ((value (funcall (funcall self :get :form) :pir)))
-                   (prt "~a = ~a" (parrot-var (funcall self :get :var)) value)
+                   (prt (parrot-var (funcall self :get :var)) " = " value)
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -347,7 +349,7 @@
               (:pir
                  (let ((var (parrot-var (funcall self :get :var)))
                        (value (funcall (funcall self :get :form) :pir)))
-                   (prt "store_lex '~a', ~a" var value)
+                   (prt "store_lex '" var "', " value)
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -362,11 +364,15 @@
                  (let* ((var (funcall self :get :var))
                         (form (funcall self :get :form))
                         (value (funcall form :pir)))
-                   (prt "set_dynamic_scope_value('~a', utf8:unicode:~s, utf8:unicode:~s, ~a)"
+                   (prt "set_dynamic_scope_value('"
                         (parrot-var var)
-                        (package-name (symbol-package var))
-                        (symbol-name var)
-                        value)
+                        "', utf8:unicode:"
+                        (prin1-to-string (package-name (symbol-package var)))
+                        ", utf8:unicode:"
+                        (prin1-to-string (symbol-name var))
+                        ", "
+                        value
+                        ")")
                    value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -395,14 +401,16 @@
                        (result (next-var))
                        (else-label (next-label "ELSE"))
                        (end-label (next-label "ENDIF")))
-                   (prt "eq_addr ~a, ~a, ~a"
+                   (prt "eq_addr "
                         (prt-nil)
+                        ", "
                         (funcall test :pir)
+                        ", "
                         else-label)
-                   (prt "~a = ~a" result (funcall then :pir))
-                   (prt "goto ~a" end-label)
+                   (prt result " = " (funcall then :pir))
+                   (prt "goto " end-label)
                    (prt-label else-label)
-                   (prt "~a = ~a" result (funcall else :pir))
+                   (prt result " = " (funcall else :pir))
                    (prt-label end-label)
                    result))
               (t (let ((ret (apply super message args)))
@@ -640,8 +648,8 @@
                  (let ((var (funcall self :get :var))
                        (value  (funcall self :get :value))
                        (rest  (funcall self :get :rest)))
-                   (prt ".local pmc ~a" (parrot-var var))
-                   (prt "~a = ~a" (parrot-var var) (funcall value :pir))
+                   (prt ".local pmc " (parrot-var var))
+                   (prt (parrot-var var) " = " (funcall value :pir))
                    (if (special-var-p var)
                        (prt-push-dynamic var))
                    (funcall rest :pir)))
@@ -677,8 +685,12 @@
               (:pir
                  (let ((symbol (funcall self :get :symbol))
                        (return-value (next-var)))
-                   (prt "~a = ~a(~{~a~^, ~})"
-                        return-value (parrot-sub-name symbol) args)
+                   (prt return-value
+                        " = "
+                        (parrot-sub-name symbol)
+                        "("
+                        (join ", " args)
+                        ")")
                    return-value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -693,11 +705,17 @@
                  (let ((symbol (funcall self :get :symbol))
                        (fun-var (next-var))
                        (return-value (next-var)))
-                   (prt "~a = get_hll_global [ ~s ], ~s"
+                   (prt fun-var
+                        " = get_hll_global [ "
+                        (prin1-to-string (package-name (symbol-package symbol)))
+                        " ], "
+                        (prin1-to-string (symbol-name symbol)))
+                   (prt return-value
+                        "  = "
                         fun-var
-                        (package-name (symbol-package symbol))
-                        (symbol-name symbol))
-                   (prt "~a  = ~a(~{~a~^, ~})" return-value fun-var args)
+                        "("
+                        (join ", " args)
+                        ")")
                    return-value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -716,7 +734,10 @@
                    setq-form))
               (:pir
                  (let ((name (funcall self :get :name)))
-                   (prt-top ".namespace [ ~s ]~%" (package-name (eval name)))))
+                   (prt-top ".namespace [ "
+                            (prin1-to-string (package-name (eval name)))
+                            " ]")
+                   (new-line)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -766,9 +787,10 @@
                  (let* ((symbol (funcall self :get :symbol))
                         (form   (funcall self :get :form))
                         (sym-var (prt-intern-symbol symbol)))
-                   (prt "~a.'specialize'()" sym-var)
-                   (prt "setattribute ~a, 'value', ~a"
+                   (prt sym-var ".'specialize'()")
+                   (prt "setattribute "
                         sym-var
+                        ", 'value', "
                         (funcall form :pir))
                    sym-var))
               (t (let ((ret (apply super message args)))
@@ -824,13 +846,16 @@
             (case message
               (:pir
                  (let ((name (funcall self :get :name)))
-                   (prt-top ".sub ~a" (parrot-sub-name name))
+                   (prt-top ".sub " (parrot-sub-name name))
                    (prt ".param pmc x :slurpy")
                    (let ((f (next-var)))
-                     (prt "~a = getattribute ~a, 'function'"
-                          f (prt-intern-symbol name))
-                     (prt ".tailcall ~a(x :flat)" f))
-                   (prt-top ".end~%")))
+                     (prt f
+                          " = getattribute "
+                          (prt-intern-symbol name)
+                          ", 'function'")
+                     (prt ".tailcall " f "(x :flat)"))
+                   (prt-top ".end")
+                   (new-line)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -845,11 +870,15 @@
                        (closure-name (funcall self :get :closure-name))
                        (sub-var (next-var))
                        (closure-var (next-var)))
-                   (prt ".const 'Sub' ~a = ~a"
-                        sub-var (parrot-sub-name closure-name))
-                   (prt "~a = newclosure ~a" closure-var sub-var)
-                   (prt "setattribute ~a, 'function', ~a"
-                        (prt-intern-symbol name) closure-var)
+                   (prt ".const 'Sub' "
+                        sub-var
+                        " = "
+                        (parrot-sub-name closure-name))
+                   (prt closure-var " = newclosure " sub-var)
+                   (prt "setattribute "
+                        (prt-intern-symbol name)
+                        ", 'function', "
+                        closure-var)
                    closure-var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -909,27 +938,29 @@
                        (outers (funcall self :get :outers))
                        (inner-functions (funcall self :get :inner-functions))
                        (lexical-store (funcall self :get :lexical-store))
-                       (modifiers (format nil "~{ ~a~}"
-                                          (funcall self :get :modifiers))))
+                       (modifiers (join " " (funcall self :get :modifiers))))
                    (if outers
-                       (prt-top ".sub ~a :outer(~a)~a"
+                       (prt-top ".sub "
                                 (parrot-sub-name name)
+                                " :outer("
                                 (parrot-sub-name (funcall (car outers)
                                                           :get :name))
+                                ") "
                                 modifiers)
-                       (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
+                       (prt-top ".sub " (parrot-sub-name name) modifiers))
                    (pir-lambda-list lambda-list)
                    (mapc (lambda (var)
                            (if (special-var-p var)
                                (prt-push-dynamic var)))
                          arguments)
                    (mapc (lambda (var)
-                           (prt ".lex '~a', ~a"
-                                (parrot-var var) (parrot-var var)))
+                           (let ((var (parrot-var var)))
+                             (prt ".lex '" var "', " var)))
                          lexical-store)
                    (let ((ret (funcall body :pir)))
-                     (prt ".return(~a)" ret))
-                   (prt-top ".end~%")
+                     (prt ".return(" ret ")"))
+                   (prt-top ".end")
+                   (new-line)
                    (mapc (lambda (x)
                            (funcall x :pir))
                          inner-functions)))
@@ -962,23 +993,26 @@
                        (outers (funcall self :get :outers))
                        (inner-functions (funcall self :get :inner-functions))
                        (lexical-store (funcall self :get :lexical-store))
-                       (modifiers (format nil "~{ ~a~}"
-                                          (funcall self :get :modifiers))))
+                       (modifiers (join " " (funcall self :get :modifiers))))
                    (if outers
-                       (prt-top ".sub ~a :outer(~a)~a"
+                       (prt-top ".sub "
                                 (parrot-sub-name name)
+                                " :outer("
                                 (parrot-sub-name (funcall (car outers)
                                                           :get :name))
+                                ") "
                                 modifiers)
-                       (prt-top ".sub ~a~a" (parrot-sub-name name) modifiers))
+                       (prt-top ".sub " (parrot-sub-name name) modifiers))
                    (funcall bindings :pir)
                    (mapc (lambda (var)
-                           (prt ".lex '~a', ~a"
-                                (parrot-var var) (parrot-var var)))
+                           (prt ".lex '"
+                                (parrot-var var)
+                                "', " (parrot-var var)))
                          lexical-store)
                    (let ((ret (funcall body :pir)))
-                     (prt ".return(~a)" ret))
-                   (prt-top ".end~%")
+                     (prt ".return(" ret ")"))
+                   (prt-top ".end")
+                   (new-line)
                    (mapc (lambda (x)
                            (funcall x :pir))
                          inner-functions)))
@@ -1018,10 +1052,10 @@
                        (values (funcall self :get :values))
                        (fun (next-var))
                        (result (next-var)))
-                   (prt ".const 'Sub' ~a = ~a"
-                        fun (parrot-sub-name name))
-                   (prt "~a = ~a(~{~a~^, ~})" result fun
-                        (funcall values :pir))
+                   (prt ".const 'Sub' " fun
+                        " = " (parrot-sub-name name))
+                   (prt result " = " fun "(" (join "," (funcall values :pir))
+                        ")")
                    result))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1036,8 +1070,8 @@
                  (let ((name (funcall self :get :name))
                        (sub (next-var))
                        (var (next-var)))
-                   (prt ".const 'Sub' ~a = ~a" sub (parrot-sub-name name))
-                   (prt "~a = newclosure ~a" var sub)
+                   (prt ".const 'Sub' " sub " = " (parrot-sub-name name))
+                   (prt var " = newclosure " sub)
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1051,10 +1085,11 @@
               (:pir
                  (let ((name (funcall self :get :name))
                        (var (next-var)))
-                   (prt "~a = get_hll_global [ ~s ], ~s"
-                        var
-                        (package-name (symbol-package name))
-                        (symbol-name name))
+                   (prt var
+                        " = get_hll_global [ "
+                        (prin1-to-string (package-name (symbol-package name)))
+                        " ], "
+                        (prin1-to-string (symbol-name name)))
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1075,17 +1110,13 @@
           (funcall self :set key (apply val message args)))
         (apply #'walk self (cdr vars) message args))))
 
-(let (var)
-  (defun next-var ()
-    (setf var (format nil "$P~d" (incf *var-counter*))))
-  (defun current-var ()
-    var))
+(defun next-var ()
+  (setq *var-counter* (+ *var-counter* 1))
+  (string+ "$P" (princ-to-string *var-counter*)))
 
-(let (var)
-  (defun next-label (name)
-    (setf var (format nil "~a~d" name (incf *label-counter*))))
-  (defun current-label ()
-    var))
+(defun next-label (name)
+  (setq *label-counter* (+ *label-counter* 1))
+  (string+ name *label-counter*))
 
 (defun parrot-var (lisp-var)
   (with-output-to-string (out)
@@ -1094,27 +1125,34 @@
                (if (alpha-char-p c)
                    (write-char c out)
                    (princ (char-code c) out)))
-         (format nil "~s" lisp-var))))
+         (prin1-to-string lisp-var))))
 
 (defun parrot-sub-name (symbol)
   (if (symbol-package symbol)
-      (format nil "~s" (symbol-name symbol))
-      (format nil "~s" (format nil "~s" symbol))))
+      (prin1-to-string (symbol-name symbol))
+      (prin1-to-string (prin1-to-string symbol))))
 
-(defun prt (format &rest args)
-  (apply #'format *pir-stream* (concatenate 'string "~8t" format) args)
-  (terpri *pir-stream*))
+(defun prt (&rest args)
+  (%write-string "        " *pir-stream*)
+  (apply #'prt-top args))
 
-(defun prt-top (format &rest args)
-  (apply #'format *pir-stream* format args)
-  (terpri *pir-stream*))
+(defun prt-top (&rest args)
+  (mapcar (lambda (x)
+            (%write-string x *pir-stream*))
+          args)
+  (new-line))
 
 (defun prt-label (label)
-  (format *pir-stream* "~a:~%" label))
+  (%write-string label *pir-stream*)
+  (%write-string ":" *pir-stream*)
+  (new-line))
+
+(defun new-line ()
+  (%terpri *pir-stream*))
 
 (defun prt-nil ()
   (let ((var (next-var)))
-    (prt "~a = get_hll_global \"NIL\"" var)
+    (prt var " = get_hll_global \"NIL\"")
     var))
 
 (defun pir-constant (value)
@@ -1123,33 +1161,35 @@
       (pir-cons value)))
 
 (defun pir-cons (cons)
-  (let ((var (next-var)))
-    (prt "~a = cons(~a, ~a)"
-         var (pir-constant (car cons)) (pir-constant (cdr cons)))
+  (let ((var (next-var))
+        (car (pir-constant (car cons)))
+        (cdr (pir-constant (cdr cons))))
+    (prt var " = cons(" car ", " cdr ")")
     var))
 
 (defun pir-symbol (symbol)
   (prt-intern-symbol symbol))
 
 (defun prt-intern-symbol (symbol)
-  (let ((package (next-var))
+  (let ((package-var (next-var))
+        (package-name (prin1-to-string (package-name (symbol-package symbol))))
+        (symbol-name (prin1-to-string (symbol-name symbol)))
         (var (next-var)))
-    (prt "~a = find_package(utf8:unicode:~s)"
-         package (package-name (symbol-package symbol)))
-    (prt "~a = ~a.'intern'(utf8:unicode:~s)" var package (symbol-name symbol))
+    (prt package-var " = find_package(utf8:unicode:" package-name ")")
+    (prt var " = " package-var ".'intern'(utf8:unicode:" symbol-name ")")
     var))
 
 (defun pir-atom (atom)
   (typecase atom
     (string
        (let ((var (next-var)))
-         (prt "~a = box utf8:unicode:~s" var atom)
+         (prt var " = box utf8:unicode:" (prin1-to-string  atom))
          var))
     (symbol
        (pir-symbol atom))
     (t
        (let ((var (next-var)))
-         (prt "~a = box ~s" var atom)
+         (prt var " = box " (prin1-to-string atom))
          var))))
 
 (defun set-lexical-var (var outers)
@@ -1180,11 +1220,11 @@
       (if (eq (car lambda-list) '&rest)
           (progn
             (let ((var (parrot-var (cadr lambda-list))))
-              (prt ".param pmc ~a :slurpy" var)
+              (prt ".param pmc " var " :slurpy")
               (pir-lambda-list (cddr lambda-list))
-              (prt "~a = array_to_list(~a)" var var)))
+              (prt var " = array_to_list(" var ")")))
           (progn
-            (prt ".param pmc ~a" (parrot-var (car lambda-list)))
+            (prt ".param pmc " (parrot-var (car lambda-list)))
             (pir-lambda-list (cdr lambda-list))))))
 
 (defvar *info* nil)
@@ -1221,7 +1261,7 @@
 
 (defun prt-push-dynamic (symbol)
   (let ((var (parrot-var symbol)))
-    (prt ".lex '~a', ~a" var var)))
+    (prt ".lex '" var "', " var)))
 
 (defun extend-r (r vars)
   (cons vars r))
@@ -1231,6 +1271,15 @@
       (extend-f (cons (car flet-gensym) f) (cdr flet-gensym))
       f))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun join (delimita list)
+  (if list
+      (let ((s (princ-to-string (car list))))
+        (mapcar (lambda (x)
+                  (setq s (string+ s (string+ delimita (princ-to-string x)))))
+                (cdr list))
+        s)
+      ""))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun pir-file-name (file)
   (string+ (subseq file 0 (- (length file) 4)) "pir"))
@@ -1246,15 +1295,26 @@
   (if (and (consp form)
            (member (car form) '(defvar defun defmacro)))
       form
-      (let ((expanded-form (macroexpand-1 form)))
-        (if (eq expanded-form form)
-            form
-            (%macroexpand expanded-form)))))
+      (if (and (consp form)
+               (eq 'in-package (car form)))
+          (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
+                (list 'setq '*package*
+                      (list 'find-package (cadr form))))
+          (let ((expanded-form (macroexpand-1 form)))
+            (if (eq expanded-form form)
+                form
+                (%macroexpand expanded-form))))))
 
 (defun read-loop (in)
   (let ((form (read in nil)))
     (when form
-      (format *pir-stream* "~&=head2~%~s~%=cut~%" form)
+      (new-line)
+      (%write-string "=head2" *pir-stream*)
+      (new-line)
+      (%write-string (prin1-to-string form) *pir-stream*)
+      (new-line)
+      (%write-string "=cut" *pir-stream*)
+      (new-line)
       (let ((object (objectify form nil nil)))
         (if (funcall object :toplevelp)
             (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
@@ -1286,6 +1346,5 @@
     (close in)))
 
 (defun put-common-header ()
-  (prt-top ".HLL \"chocolisp\"~%"))
-
-;;(prt-top ".namespace [~s]~%" (package-name *package*)))
+  (prt-top ".HLL \"chocolisp\"")
+  (new-line))

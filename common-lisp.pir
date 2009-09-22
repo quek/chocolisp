@@ -247,17 +247,39 @@ end:
         .return($P0)
 .end
 
+.sub 'PRINC-TO-STRING'
+        .param pmc x
+        $S0 = x
+        .return($S0)
+.end
+
+.sub 'PRIN1-TO-STRING' :multi('String')
+        .param pmc x
+        x.'replace'("\"", "\\\"")
+        $S0 = x
+        $S0 = "\"" . $S0
+        $S0 .= "\""
+        .return($S0)
+.end
+
+.sub 'PRIN1-TO-STRING' :multi(_)
+        .param pmc x
+        $S0 = x
+        .return($S0)
+.end
 
 .sub 'PRINC'
         .param pmc x
-        print x
+        $P0 = 'PRINC-TO-STRING'(x)
+        print $P0
         .return(x)
 .end
 
 .sub 'PRINT'
         .param pmc x
         say ""
-        print x
+        $P0 = 'PRIN1-TO-STRING'(x)
+        print $P0
         print " "
         .return(x)
 .end

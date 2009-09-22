@@ -39,12 +39,12 @@ true:
         .return($P0)
 .end
 
-.sub 'CLOSE'
+.sub '%CLOSE'
         .param pmc fh
         close fh
 .end
 
-.sub 'READ-CHAR'
+.sub '%READ-CHAR'
         .param pmc fh
         $S0 = read fh, 1
         $I0 = $S0
@@ -55,7 +55,7 @@ ok:
         .return($S0)
 .end
 
-.sub 'READ-LINE'
+.sub '%READ-LINE'
         .param pmc fh
         $S0 = readline fh
         $I0 = $S0
@@ -66,7 +66,7 @@ ok:
         .return($S0)
 .end
 
-.sub 'PEEK-CHAR'
+.sub '%PEEK-CHAR'
         .param pmc fh
         $S0 = peek $P0
         $I0 = $S0
@@ -77,13 +77,32 @@ ok:
         .return($S0)
 .end
 
+.sub '%WRITE-STRING'
+        .param pmc str
+        .param pmc fh
+        print fh, str
+        .return(str)
+.end
+
+.sub '%TERPRI'
+        .param pmc fh
+        print fh, "\n"
+        .nil
+        .return(nil)
+.end
+
 .sub 'STRING+'
-        .param string x
-        .param string y
-        $S0 = x
-        $S1 = y
-        $S2 = x . y
-        .return($S2)
+        .param pmc args :slurpy
+        $S0 = ""
+        $P0 = iter args
+loop:
+        unless $P0 goto end
+        $P1 = shift $P0
+        $S1 = $P1
+        $S0 .= $S1
+        goto loop
+end:
+        .return($S0)
 .end
 
 .sub 'STRING-TO-NUMBER'
