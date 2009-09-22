@@ -7,6 +7,17 @@
 .sub '' :anon :load :init
 .end
 
+.sub 'ATOM'
+        .param pmc x
+        $I0 = isa x, ["CHOCO";"CONS"]
+        if $I0 goto false
+        .t
+        .return(t)
+false:
+        .nil
+        .return(nil)
+.end
+
 .sub 'CONS'
         .param pmc car
         .param pmc cdr
@@ -57,6 +68,36 @@ true:
         .tailcall f(args :flat)
 .end
 
+.sub 'APPLY'
+        .param pmc f
+        .param pmc arg
+        .param pmc rest :slurpy
+        .nil
+        $I0 = rest
+        if $I0 goto rest_supplied
+        $P0 = 'ATOM'(arg)
+        eq_addr $P0, nil, error
+        .tailcall f(arg :flat)
+rest_supplied:
+        .local pmc array
+        array = new 'ResizablePMCArray'
+        push array, arg
+        .local pmc i
+        i = iter rest
+        $P0 = shift i
+loop:
+        unless i goto end
+        push array, $P0
+        $P0 = shift i
+        goto loop
+end:
+        $P0 = list_to_array($P0)
+        array.'append'($P0)
+        .tailcall f(array :flat)
+error:
+        die "arg is atom."
+.end
+
 .sub 'EQ'
         .param pmc x
         .param pmc y
@@ -69,8 +110,8 @@ true:
 .end
 
 .sub 'LENGTH' :multi('String')
-        .param pmc x
-        $I0 = x.'length'()
+        .param string x
+        $I0 = length x
         .return($I0)
 .end
 
@@ -88,10 +129,15 @@ end:
 .end
 
 .sub 'SUBSEQ' :multi('String')
-        .param pmc s
+        .param string s
         .param int start
-        .param int end
-        $S0 = s.'substr'(start, end)
+        .param int end :optional
+        .param int has_end :opt_flag
+        if has_end goto L1
+        $S0 = substr s, start
+        .return($S0)
+L1:
+        $S0 = substr s, start, end
         .return($S0)
 .end
 
@@ -181,6 +227,26 @@ loop:
 end:
         .return($P0)
 .end
+
+.sub '-'
+        .param pmc first
+        .param pmc rest :slurpy
+        $I0 = rest
+        if $I0 goto L1
+        $P0 = neg first
+        .return($P0)
+L1:
+        $P0 = first
+        $P1 = iter rest
+loop:
+        unless $P1 goto end
+        $P2 = shift $P1
+        $P0 -= $P2
+        goto loop
+end:
+        .return($P0)
+.end
+
 
 .sub 'PRINC'
         .param pmc x

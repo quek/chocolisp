@@ -31,6 +31,21 @@ end:
         .return($P0)
 .end
 
+.sub list_to_array
+        .param pmc list
+        .nil
+        .local pmc array, car
+        array = new 'ResizablePMCArray'
+loop:
+        eq_addr list, nil, end
+        car = getattribute list, 'car'
+        push array, car
+        list = getattribute list, 'cdr'
+        goto loop
+end:
+        .return(array)
+.end
+
 ## TODO nickname
 .sub find_package
         .param pmc name

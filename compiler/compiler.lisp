@@ -1287,4 +1287,5 @@
 
 (defun put-common-header ()
   (prt-top ".HLL \"chocolisp\"~%"))
+
 ;;(prt-top ".namespace [~s]~%" (package-name *package*)))

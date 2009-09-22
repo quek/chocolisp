@@ -22,7 +22,17 @@ true:
         .return(t)
 .end
 
-.sub 'OPEN'
+.sub 'OPEN-INPUT-FILE'
+        .param string path
+        .tailcall '%OPEN'(path, "r")
+.end
+
+.sub 'OPEN-OUTPUT-FILE'
+        .param string path
+        .tailcall '%OPEN'(path, "w")
+.end
+
+.sub '%OPEN'
         .param string path
         .param string mode
         $P0 = open path, mode
