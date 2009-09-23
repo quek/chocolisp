@@ -60,7 +60,12 @@
   (read stream nil))
 
 (defun $macroexpand (form)
-  (macroexpand form))
+  (if (eq (car form) 'defmacro)
+      `(eval-when (:load-toplevel :execute)
+         ($set-attribute ',(cadr form) "macro-function"
+                         (lambda ,(caddr form)
+                           ,@(cdddr form))))
+      (macroexpand-1 form)))
 
 (defun $symbol-package (symbol)
   (symbol-package symbol))
@@ -79,6 +84,9 @@
 
 (defun $rplacd (cons x)
   (rplacd cons x))
+
+(defun $eval (form)
+  (eval form))
 
 (defun is (x y)
   (unless (equal x y)

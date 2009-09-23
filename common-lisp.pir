@@ -233,7 +233,7 @@ true:
 
 .sub 'TYPE-OF'
         .param pmc x
-        .param pmc package
+        .local pmc package
         package = find_package("COMMON-LISP")
         $I0 = isa x, ["CHOCO";"SYMBOL"]
         if $I0 goto SYMBOL
@@ -252,6 +252,18 @@ STRING:
 INTEGER:
         $P0 = package.'intern'("Integer")
         .return($P0)
+.end
+
+.sub 'TYPEP'
+        .param pmc object
+        .param pmc type
+        $P0 = 'TYPE-OF'(object)
+        eq_addr $P0, type, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
 .end
 
 .sub 'MAKE-SYMBOL'

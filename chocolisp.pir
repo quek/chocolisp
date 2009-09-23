@@ -60,7 +60,7 @@ end:
         .param pmc nicknames :slurpy
         .local pmc package, nicknames
         package = new ["CHOCO";"PACKAGE"]
-        package = "COMMON-LISP"
+        setattribute package, 'name', name
         $P0 = getattribute package, 'nick-names'
         $P1 = iter nicknames
 loop:
@@ -134,11 +134,9 @@ NOTFOUND:
 
         $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
         $P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
-
-        $P0 = open "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"
-        $P1 = get_hll_global ["CHIMACHO"], "$READ"
-        $P2 = $P1($P0)
-        say $P2
+        say "==== start compiler/a.pir in parrot ===="
+        load_bytecode "compiler/a.pir"
+        say "==== end compiler/a.pir in parrot ===="
 .end
 
 .sub '' :anon :load :init
@@ -188,6 +186,8 @@ NOTFOUND:
         setattribute t, 'value', t
         set_hll_global "T", t
 
+        common_lisp_package.'intern-and-export'("IN-PACKAGE")
+
         .local pmc cl_user, use_list
         cl_user = make_package("COMMON-LISP-USER", "CL-USER")
         use_list = getattribute cl_user, 'use-list'
@@ -206,5 +206,6 @@ NOTFOUND:
         push use_list, common_lisp_package
 .end
 
+.include "cl-symbols.pir"
 
 .include "common-lisp.pir"

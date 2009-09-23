@@ -148,6 +148,14 @@ error:
         .return($P0)
 .end
 
+.sub '$EXPORT'
+        .param pmc symbol
+        .param pmc package
+        package.'export'(symbol)
+        .t
+        .return(t)
+.end
+
 .sub '$SET-ATTRIBUTE'
         .param pmc object
         .param string attribute

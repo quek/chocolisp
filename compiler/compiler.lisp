@@ -1,5 +1,6 @@
 (declaim (optimize (debug 3) (safety 3)))
-(in-package "CHIMACHO")
+
+(in-package :chimacho)
 
 (defvar *pir-stream* *standard-output*)
 (defvar *var-counter*)
@@ -7,6 +8,7 @@
 
 ;; TODO atom special macor function の順番
 (defun objectify (form r f)
+  (print form)
   (if (atom form)
       (if (symbolp form)
           (objectify-reference form r)
@@ -39,11 +41,12 @@
             (objectify-progn (cddr form) r f))
         (defun
             (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
-        (defmacro
-            (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
+        #|(defmacro
+            (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))|#
         (defvar
             (objectify-defvar (cadr form) (caddr form) r f))
         (in-package
+           (print "case in-package!")
            (objectify
             ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
                    ($list 'setq '*package*
@@ -750,7 +753,7 @@
               (:pir
                  (let ((name (funcall self :get :name)))
                    (prt-top ".namespace [ "
-                            (prin1-to-string ($package-name (eval name)))
+                            (prin1-to-string ($symbol-name (cadr name)))
                             " ]")
                    (new-line)))
               (t (let ((ret (apply super message args)))
@@ -770,7 +773,7 @@
                         (raw-form (funcall self :get :raw-form))
                         (modifiers nil))
                    (if ($member :compile-toplevel situations)
-                       (eval raw-form))
+                       ($eval raw-form))
                    (if ($member :load-toplevel situations)
                        (setq modifiers (cons ":load" modifiers)))
                    (if ($member :execute situations)
@@ -1041,7 +1044,6 @@
                                  lexical-store
                                  outers
                                  modifiers)
-  "見てのとおり、これはいらないかも。"
   (let ((super (make-flat-function name
                                    lambda-list
                                    body

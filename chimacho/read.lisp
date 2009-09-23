@@ -1,8 +1,7 @@
-(in-package "CHIMACHO")
+(in-package :chimacho)
 
 (defun $read (in)
   (skip-whitespace in)
-  (print
    (let ((c ($peek-char in)))
      (if c
          (if (string= "(" c)
@@ -11,8 +10,7 @@
                  (progn
                    ($read-line in)
                    ($read in))
-                 (read-atom))))))
-  )
+                 (read-atom in))))))
 
 (defun skip-whitespace (in)
   (let ((c ($peek-char in)))
@@ -38,13 +36,14 @@
 
 (defun read-atom (in)
   (skip-whitespace in)
-  (let ((c ($read-char in)))
+  (let ((c ($peek-char in)))
     (if (string= c "\"")
-        (read-string in "")
+        (progn ($read-char in)
+               (read-string in ""))
         (if (or (string< c "0")
                 (string< "9" c))
-            (read-symbol in c "" nil t)
-            (read-number in c)))))
+            (read-symbol in "" "" nil t)
+            (read-number in ($read-char in))))))
 
 (defun read-string (in acc)
    (let ((c ($read-char in)))

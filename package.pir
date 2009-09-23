@@ -37,10 +37,19 @@
         .param string name
         .local pmc external
         $P0 = self.'find-external-symbol'(name)
-        $I0 = isnull $P0
-        if $I0 goto l1
+        if_null $P0, L1
         .return($P0)
-l1:
+L1:
+        .local pmc uses, i, package
+        uses = getattribute self, 'use-list'
+        i = iter uses
+loop:
+        unless i goto L20
+        package = shift i
+        $P0 = package.'find-external-symbol'(name)
+        if_null $P0, loop
+        .return($P0)
+L20:
         .local pmc internal
         internal = getattribute self, 'internal-symbols'
         $P0 = internal[name]
@@ -76,6 +85,12 @@ intern:
         delete internal[symbol_name]
 .end
 
+.sub  'intern-and-export' :method
+        .param pmc name
+        $P0 = self.'intern'(name)
+        self.'export'($P0)
+        .return($P0)
+.end
 
 .namespace [ "CHOCO";"KEYWORD-PACKAGE" ]
 
