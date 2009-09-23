@@ -51,10 +51,10 @@
   (error message))
 
 (defun $char (str i)
-  (char str i))
+  (subseq str i (+ i 1)))
 
 (defun $char-code (c)
-  (char-code c))
+  (char-code (char c 0)))
 
 (defun $read (stream)
   (read stream nil))
@@ -73,6 +73,12 @@
 
 (defun $gensym (prefix)
   (gensym prefix))
+
+(defun $rplaca (cons x)
+  (rplaca cons x))
+
+(defun $rplacd (cons x)
+  (rplacd cons x))
 
 (defun is (x y)
   (unless (equal x y)

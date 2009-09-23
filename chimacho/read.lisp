@@ -7,7 +7,7 @@
      (if c
          (if (string= "(" c)
              (read-list in)
-             (if (string= ";")
+             (if (string= c ";")
                  (progn
                    ($read-line in)
                    ($read in))

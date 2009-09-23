@@ -187,6 +187,17 @@ true:
         .return($P0)
 .end
 
+.sub 'FUNCTIONP'
+        .param pmc x
+        $I0 = isa x, 'Sub'
+        if $I0 goto true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
 .sub 'STRING='
         .param string x
         .param string y
@@ -357,6 +368,12 @@ end:
 .sub 'CDDR'
         .param pmc x
         $P0 = 'CDR'(x)
+        .tailcall 'CDR'($P0)
+.end
+
+.sub 'CDAR'
+        .param pmc x
+        $P0 = 'CAR'(x)
         .tailcall 'CDR'($P0)
 .end
 

@@ -246,11 +246,11 @@
               (:set
                  (let ((cons ($assoc (car args) vars)))
                    (if cons
-                       (rplacd cons (cadr args)))))
+                       ($rplacd cons (cadr args)))))
               (:add
                  (let ((cons ($assoc (car args) vars)))
                    (if cons
-                       (rplacd cons (cons (cadr args) (cdr cons)))))))))))
+                       ($rplacd cons (cons (cadr args) (cdr cons)))))))))))
 
 (defun make-program (&rest vars)
   (let ((super (apply #'make-object vars))
@@ -1135,13 +1135,13 @@
   (string+ name *label-counter*))
 
 (defun parrot-var (lisp-var)
-  (with-output-to-string (out)
-    (write-string "p_" out)
+  (let ((out "p_"))
     ($map-string (lambda (c)
-               (if (alpha-char-p c)
-                   (write-char c out)
-                   (princ ($char-code c) out)))
-             (prin1-to-string lisp-var))))
+                   (if ($alpha-char-p c)
+                       (setq out (string+ out c))
+                       (setq out (string+ out ($char-code c)))))
+                 (prin1-to-string lisp-var))
+    out))
 
 (defun parrot-sub-name (symbol)
   (if ($symbol-package symbol)
@@ -1311,7 +1311,7 @@
   (if (= (length string) 0)
       nil
       (progn
-        (funcall f ($char string 0))
+        (funcall f (subseq string 0 1))
         ($map-string f (subseq string 1)))))
 
 (defun $reverse (list)
@@ -1341,6 +1341,15 @@
       (if (eq item (caar alist))
           (car alist)
           ($assoc item (cdr alist)))))
+
+(defun $alpha-char-p (c)
+  (if (and (string<= "a" c)
+           (string<= c "z"))
+      t
+      (if (and (string<= "A" c)
+               (string<= c "Z"))
+          t)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun pir-file-name (file)
   (string+ (subseq file 0 (- (length file) 4)) "pir"))

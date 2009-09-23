@@ -13,3 +13,9 @@
   (defun $gensym (prefix)
     (setq counter (+ 1 counter))
     (make-symbol (string+ prefix counter))))
+
+(defun $rplaca (cons x)
+  ($set-attribute cons "car" x))
+
+(defun $rplacd (cons x)
+  ($set-attribute cons "cdr" x))
