@@ -71,6 +71,9 @@
 (defun $package-name (package)
   (package-name package))
 
+(defun $gensym (prefix)
+  (gensym prefix))
+
 (defun is (x y)
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))

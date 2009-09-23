@@ -8,3 +8,8 @@
 
 (defun $package-name (package)
   ($get-attribute package "name"))
+
+(let ((counter 0))
+  (defun $gensym (prefix)
+    (setq counter (+ 1 counter))
+    (make-symbol (string+ prefix counter))))

@@ -61,7 +61,7 @@
 (defun objectify-flet (flet-form body-form r f)
   (let* ((fnames ($mapcar (lambda (form)
                            (let ((name (car form)))
-                             (cons name (gensym ($symbol-name name)))))
+                             (cons name ($gensym ($symbol-name name)))))
                          flet-form))
          (fdefs ($mapcar (lambda (fnames form)
                           (make-flat-function
@@ -79,7 +79,7 @@
   (if labels-form
       (let* ((def (car labels-form))
              (label (car def))
-             (gensym-label (gensym ($symbol-name label)))
+             (gensym-label ($gensym ($symbol-name label)))
              (lambda-list (cadr def))
              (body (cddr def)))
         (%objectify-labels
@@ -121,13 +121,15 @@
   (make-constant value))
 
 (defun objectify-reference (var r)
-  (case (var-kind var r)
-    (:local
-       (make-local-reference var))
-    (:lexical
-       (make-lexical-reference var))
-    (:dynamic
-       (make-dynamic-reference var))))
+  (if (keywordp var)
+      (make-constant var)
+      (case (var-kind var r)
+        (:local
+           (make-local-reference var))
+        (:lexical
+           (make-lexical-reference var))
+        (:dynamic
+           (make-dynamic-reference var)))))
 
 (defun objectify-if (test then else r f)
   (make-if (objectify test r f)
@@ -454,7 +456,7 @@
                         (values (funcall self :get :values))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (name (gensym "let"))
+                        (name ($gensym "let"))
                         (flat-function (make-flat-function
                                         name
                                         vars
@@ -486,7 +488,7 @@
                  (let* ((bindings (funcall self :get :bindings))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (name (gensym "let"))
+                        (name ($gensym "let"))
                         (flat-let*-function (make-flat-let*-function
                                              name
                                              nil
@@ -518,7 +520,7 @@
                  (let* ((lambda-list (funcall self :get :lambda-list))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (name (gensym "lambda"))
+                        (name ($gensym "lambda"))
                         (flat-function (make-flat-function
                                         name
                                         lambda-list
@@ -595,7 +597,7 @@
                         (lambda-list (funcall lambda :get :lambda-list))
                         (body (funcall lambda :get :body))
                         (outers (car args))
-                        (name (gensym "lambda"))
+                        (name ($gensym "lambda"))
                         (flat-function (make-flat-function name
                                                            lambda-list
                                                            nil
@@ -774,7 +776,7 @@
                    (if ($member :execute situations)
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
-                       (let ((fun (make-flat-function (gensym "eval-when")
+                       (let ((fun (make-flat-function ($gensym "eval-when")
                                                       nil
                                                       form
                                                       nil
@@ -822,7 +824,7 @@
                         (body (funcall self :get :body))
                         (outers (car args)))
                    (if outers
-                       (let* ((closure-name (gensym ($symbol-name name)))
+                       (let* ((closure-name ($gensym ($symbol-name name)))
                               (closure (make-flat-function
                                         closure-name
                                         lambda-list
@@ -1067,6 +1069,7 @@
                        (result (next-var)))
                    (prt ".const 'Sub' " fun
                         " = " (parrot-sub-name name))
+                   (prt fun " = newclosure " fun)
                    (prt result " = " fun "(" (join "," (funcall values :pir))
                         ")")
                    result))
@@ -1363,7 +1366,7 @@
         (if (funcall object :toplevelp)
             (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
             (let ((flat-function (make-flat-function
-                                  (gensym "toplevel")
+                                  ($gensym "toplevel")
                                   nil
                                   nil
                                   nil

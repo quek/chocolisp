@@ -243,10 +243,30 @@ INTEGER:
         .return($P0)
 .end
 
+.sub 'MAKE-SYMBOL'
+        .param string name
+        .local pmc symbol
+        symbol = new ["CHOCO";"SYMBOL"]
+        symbol = name
+        .return(symbol)
+.end
+
 .sub 'SYMBOLP'
         .param pmc x
         $I0 = isa x, ["CHOCO";"SYMBOL"]
         if $I0 goto true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'KEYWORDP'
+        .param pmc x
+        $P0 = getattribute x, 'package'
+        $P1 = find_package("KEYWORD")
+        eq_addr $P0, $P1, true
         .nil
         .return(nil)
 true:
