@@ -144,10 +144,21 @@ error:
         .param string name
         .param pmc package
         $S0 = upcase name
-        say "__$INTERN"
-        say $S0
-        say package
-        say "^^$INTERN"
         $P0 = package.'intern'($S0)
+        .return($P0)
+.end
+
+.sub '$SET-ATTRIBUTE'
+        .param pmc object
+        .param string attribute
+        .param pmc value
+        setattribute object, attribute, value
+        .return(value)
+.end
+
+.sub '$GET-ATTRIBUTE'
+        .param pmc object
+        .param string attribute
+        $P0 = getattribute object, attribute
         .return($P0)
 .end

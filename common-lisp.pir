@@ -113,6 +113,23 @@ true:
         .return(t)
 .end
 
+.sub 'EQL' :multi('Number', 'Number')
+        .param pmc x
+        .param pmc y
+        eq_num x, y, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'EQL' :multi(_, _)
+        .param pmc x
+        .param pmc y
+        .tailcall 'EQ'(x, y)
+.end
+
 .sub 'LENGTH' :multi('String')
         .param string x
         $I0 = length x
@@ -160,8 +177,13 @@ true:
 .sub 'FIND-PACKAGE'
         .param pmc x
         $S0 = x
-        $S0 = upcase $S0
         $P0 = find_package($S0)
+        .return($P0)
+.end
+
+.sub 'MACRO-FUNCTION'
+        .param pmc symbol
+        $P0 = getattribute symbol, 'macro-function'
         .return($P0)
 .end
 
@@ -221,6 +243,17 @@ INTEGER:
         .return($P0)
 .end
 
+.sub 'SYMBOLP'
+        .param pmc x
+        $I0 = isa x, ["CHOCO";"SYMBOL"]
+        if $I0 goto true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
 .sub '+'
         .param pmc args :slurpy
         $P0 = box 0
@@ -272,6 +305,39 @@ end:
         .param pmc x
         $S0 = x
         .return($S0)
+.end
+
+.sub 'CADR'
+        .param pmc x
+        $P0 = 'CDR'(x)
+        .tailcall 'CAR'($P0)
+.end
+
+.sub 'CADDR'
+        .param pmc x
+        $P0 = 'CDR'(x)
+        $P0 = 'CDR'($P0)
+        .tailcall 'CAR'($P0)
+.end
+
+.sub 'CADDDR'
+        .param pmc x
+        $P0 = 'CDR'(x)
+        $P0 = 'CDR'($P0)
+        $P0 = 'CDR'($P0)
+        .tailcall 'CAR'($P0)
+.end
+
+.sub 'CAAR'
+        .param pmc x
+        $P0 = 'CAR'(x)
+        .tailcall 'CAR'($P0)
+.end
+
+.sub 'CDDR'
+        .param pmc x
+        $P0 = 'CDR'(x)
+        .tailcall 'CDR'($P0)
 .end
 
 .sub 'PRINC'

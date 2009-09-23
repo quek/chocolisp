@@ -120,6 +120,10 @@ NOTFOUND:
         load_bytecode "compiler/a.pir"
         say "==== end compiler/a.pir ===="
 
+        say "==== start compiler/ch-compiler.pir ===="
+        load_bytecode "compiler/ch-compiler.pir"
+        say "==== end compiler/ch-compiler.pir ===="
+
         say "==== start chimacho/read.pir ===="
         load_bytecode "chimacho/read.pir"
         say "==== end chimacho/read.pir ===="
@@ -163,6 +167,7 @@ NOTFOUND:
         addattribute $P0, 'name'
         addattribute $P0, 'value'
         addattribute $P0, 'function'
+        addattribute $P0, 'macro-function'
         addattribute $P0, 'plist'
         addattribute $P0, 'package'
         addattribute $P0, 'special-var-p'
@@ -188,8 +193,12 @@ NOTFOUND:
         use_list = getattribute cl_user, 'use-list'
         push use_list, common_lisp_package
 
+        $P0 = subclass ["CHOCO";"PACKAGE"], ["CHOCO";"KEYWORD-PACKAGE"]
         .local pmc keyword_package
-        keyword_package = make_package("KEYWORD")
+        keyword_package = new ["CHOCO";"KEYWORD-PACKAGE"]
+        $P1 = box "KEYWORD"
+        setattribute keyword_package, 'name', $P1
+        all_packages["KEYWORD"] = keyword_package
 
         .local pmc chimacho
         chimacho = make_package("CHIMACHO")

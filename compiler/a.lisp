@@ -1,4 +1,4 @@
-(in-package "CHIMACHO")
+(in-package :chimacho)
 
 (let ((x 0))
   (defun get-x ()

@@ -5,12 +5,12 @@
 
 (in-package :chimacho)
 
-;;(defun compile-pir-to-pbc (pir-file pbc-file)
-;;  (sb-ext:run-program "parrot"
-;;                      (list "-o" pbc-file pir-file)
-;;                      :search t
-;;                      :wait t
-;;                      :output *standard-output*))
+(defun compile-pir-to-pbc (pir-file pbc-file)
+  (sb-ext:run-program "parrot"
+                      (list "-o" pbc-file pir-file)
+                      :search t
+                      :wait t
+                      :output *standard-output*))
 
 (defun compile-and-run (file)
   (parrot-compile-file file)
@@ -58,6 +58,18 @@
 
 (defun $read (stream)
   (read stream nil))
+
+(defun $macroexpand (form)
+  (macroexpand form))
+
+(defun $symbol-package (symbol)
+  (symbol-package symbol))
+
+(defun $symbol-name (symbol)
+  (symbol-name symbol))
+
+(defun $package-name (package)
+  (package-name package))
 
 (defun is (x y)
   (unless (equal x y)

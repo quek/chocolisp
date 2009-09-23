@@ -5,49 +5,63 @@
 (defvar *var-counter*)
 (defvar *label-counter*)
 
+;; TODO atom special macor function の順番
 (defun objectify (form r f)
-  (let ((form (%macroexpand form)))
-    (if (atom form)
-        (if (symbolp form)
-            (objectify-reference form r f)
-            (objectify-quotation form))
-        (case (car form)
-          (quote
-             (objectify-quotation (cadr form)))
-          (if
-              (objectify-if (cadr form) (caddr form) (cadddr form) r f))
-          (let
-              (objectify-let (cadr form) (cddr form) r f))
-          (let*
-              (objectify-let* (cadr form) (cddr form) r f))
-          (lambda
-              (objectify-lambda (cadr form) (cddr form) r f))
-          (function
-             (objectify-function (cadr form) r f))
-          (progn
-            (objectify-progn (cdr form) r f))
-          (setq
-             ;; TODO 1 つだけじゃない
-             (objectify-setq (cadr form) (caddr form) r f))
-          (flet
-              (objectify-flet (cadr form) (cddr form) r f))
-          (labels
-              (objectify-labels (cadr form) (cddr form) r f))
-          (eval-when
-              (objectify-eval-when (cadr form) (cddr form) r f))
-          (chimacho::defun
-              (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
-          (chimacho::defmacro
-              (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
-          (chimacho::defvar
-              (objectify-defvar (cadr form) (caddr form) r f))
-          (t (objectify-application (car form) (cdr form) r f))))))
+  (if (atom form)
+      (if (symbolp form)
+          (objectify-reference form r)
+          (objectify-quotation form))
+      (case (car form)
+        (quote
+           (objectify-quotation (cadr form)))
+        (if
+            (objectify-if (cadr form) (caddr form) (cadddr form) r f))
+        (let
+            (objectify-let (cadr form) (cddr form) r f))
+        (let*
+            (objectify-let* (cadr form) (cddr form) r f))
+        (lambda
+            (objectify-lambda (cadr form) (cddr form) r f))
+        (function
+           (objectify-function (cadr form) r f))
+        (progn
+          (objectify-progn (cdr form) r f))
+        (setq
+           ;; TODO 1 つだけじゃない
+           (objectify-setq (cadr form) (caddr form) r f))
+        (flet
+            (objectify-flet (cadr form) (cddr form) r f))
+        (labels
+            (objectify-labels (cadr form) (cddr form) r f))
+        (eval-when
+            (objectify-eval-when (cadr form) (cddr form) r f))
+        (the
+            (objectify-progn (cddr form) r f))
+        (defun
+            (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
+        (defmacro
+            (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))
+        (defvar
+            (objectify-defvar (cadr form) (caddr form) r f))
+        (in-package
+           (objectify
+            ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
+                   ($list 'setq '*package*
+                          ($list 'find-package (cadr form)))) r f))
+        (declare
+           (objectify nil r f))
+        (t
+           (if (symbolp (car form))
+               (if (macro-function (car form))
+                   (objectify ($macroexpand form) r f)
+                   (objectify-application (car form) (cdr form) r f))
+               (objectify-application (car form) (cdr form) r f))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun objectify-flet (flet-form body-form r f)
   (let* ((fnames ($mapcar (lambda (form)
                            (let ((name (car form)))
-                             (cons name (gensym (symbol-name name)))))
+                             (cons name (gensym ($symbol-name name)))))
                          flet-form))
          (fdefs ($mapcar (lambda (fnames form)
                           (make-flat-function
@@ -65,7 +79,7 @@
   (if labels-form
       (let* ((def (car labels-form))
              (label (car def))
-             (gensym-label (gensym (symbol-name label)))
+             (gensym-label (gensym ($symbol-name label)))
              (lambda-list (cadr def))
              (body (cddr def)))
         (%objectify-labels
@@ -88,7 +102,7 @@
   (if (eq 'cl:*package* symbol)
       (make-change-package value-form
                            (make-dynamic-assignment symbol (objectify value-form r f)))
-      (ecase (var-kind symbol r f)
+      (ecase (var-kind symbol r)
         (:local
            (make-local-assignment symbol (objectify value-form r f)))
         (:lexical
@@ -106,8 +120,8 @@
 (defun objectify-quotation (value)
   (make-constant value))
 
-(defun objectify-reference (var r f)
-  (case (var-kind var r f)
+(defun objectify-reference (var r)
+  (case (var-kind var r)
     (:local
        (make-local-reference var))
     (:lexical
@@ -149,7 +163,7 @@
 
 (defun objectify-function (name r f)
   (if (symbolp name)
-      (if (eq *package* (symbol-package name))
+      (if (eq *package* ($symbol-package name))
           (make-extracted-lambda name)
           (make-global-function-reference name))
       (if (and ($consp name)
@@ -180,7 +194,7 @@
 
 (defun objectify-application (fun args r f)
   (if (symbolp fun)
-      (if (assoc fun f)
+      (if ($assoc fun f)
           (objectify-application-local-function fun args r f)
           (objectify-application-symbol fun args r f))
       (if (and ($consp fun)
@@ -190,13 +204,13 @@
 
 (defun objectify-application-local-function (fun args r f)
   (make-regular-application
-   (make-local-function (cdr (assoc fun f)))
+   (make-local-function (cdr ($assoc fun f)))
    (list-to-arguments ($mapcar (lambda (x)
                                 (objectify x r f))
                               args))))
 
 (defun objectify-application-symbol (fun args r f)
-  (let ((fun (if (eq *package* (symbol-package fun))
+  (let ((fun (if (eq *package* ($symbol-package fun))
                  (make-local-function fun)
                  (make-global-function fun)))
         (objected-args (list-to-arguments
@@ -226,13 +240,13 @@
               (:all-vars
                  vars)
               (:get
-                 (cdr (assoc (car args) vars)))
+                 (cdr ($assoc (car args) vars)))
               (:set
-                 (let ((cons (assoc (car args) vars)))
+                 (let ((cons ($assoc (car args) vars)))
                    (if cons
                        (rplacd cons (cadr args)))))
               (:add
-                 (let ((cons (assoc (car args) vars)))
+                 (let ((cons ($assoc (car args) vars)))
                    (if cons
                        (rplacd cons (cons (cadr args) (cdr cons)))))))))))
 
@@ -308,10 +322,10 @@
                        (value (next-var)))
                    (prt value " = get_dynamic_scope_value('"
                         (parrot-var var)
-                        "', utf8:unicode:" 
-                        (prin1-to-string (package-name (symbol-package var)))
+                        "', utf8:unicode:"
+                        (prin1-to-string ($package-name ($symbol-package var)))
                         ", utf8:unicode:"
-                        (prin1-to-string (symbol-name var))
+                        (prin1-to-string ($symbol-name var))
                         ")")
                    value))
               (t (let ((ret (apply super message args)))
@@ -366,9 +380,9 @@
                    (prt "set_dynamic_scope_value('"
                         (parrot-var var)
                         "', utf8:unicode:"
-                        (prin1-to-string (package-name (symbol-package var)))
+                        (prin1-to-string ($package-name ($symbol-package var)))
                         ", utf8:unicode:"
-                        (prin1-to-string (symbol-name var))
+                        (prin1-to-string ($symbol-name var))
                         ", "
                         value
                         ")")
@@ -706,9 +720,9 @@
                        (return-value (next-var)))
                    (prt fun-var
                         " = get_hll_global [ "
-                        (prin1-to-string (package-name (symbol-package symbol)))
+                        (prin1-to-string ($package-name ($symbol-package symbol)))
                         " ], "
-                        (prin1-to-string (symbol-name symbol)))
+                        (prin1-to-string ($symbol-name symbol)))
                    (prt return-value
                         "  = "
                         fun-var
@@ -734,7 +748,7 @@
               (:pir
                  (let ((name (funcall self :get :name)))
                    (prt-top ".namespace [ "
-                            (prin1-to-string (package-name (eval name)))
+                            (prin1-to-string ($package-name (eval name)))
                             " ]")
                    (new-line)))
               (t (let ((ret (apply super message args)))
@@ -808,7 +822,7 @@
                         (body (funcall self :get :body))
                         (outers (car args)))
                    (if outers
-                       (let* ((closure-name (gensym (symbol-name name)))
+                       (let* ((closure-name (gensym ($symbol-name name)))
                               (closure (make-flat-function
                                         closure-name
                                         lambda-list
@@ -1086,9 +1100,9 @@
                        (var (next-var)))
                    (prt var
                         " = get_hll_global [ "
-                        (prin1-to-string (package-name (symbol-package name)))
+                        (prin1-to-string ($package-name ($symbol-package name)))
                         " ], "
-                        (prin1-to-string (symbol-name name)))
+                        (prin1-to-string ($symbol-name name)))
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1127,8 +1141,8 @@
              (prin1-to-string lisp-var))))
 
 (defun parrot-sub-name (symbol)
-  (if (symbol-package symbol)
-      (prin1-to-string (symbol-name symbol))
+  (if ($symbol-package symbol)
+      (prin1-to-string ($symbol-name symbol))
       (prin1-to-string (prin1-to-string symbol))))
 
 (defun prt (&rest args)
@@ -1171,8 +1185,9 @@
 
 (defun prt-intern-symbol (symbol)
   (let ((package-var (next-var))
-        (package-name (prin1-to-string (package-name (symbol-package symbol))))
-        (symbol-name (prin1-to-string (symbol-name symbol)))
+        (package-name (prin1-to-string ($package-name
+                                         ($symbol-package symbol))))
+        (symbol-name (prin1-to-string ($symbol-name symbol)))
         (var (next-var)))
     (prt package-var " = find_package(utf8:unicode:" package-name ")")
     (prt var " = " package-var ".'intern'(utf8:unicode:" symbol-name ")")
@@ -1229,12 +1244,12 @@
 (defvar *info* nil)
 
 (defun get-info (object key)
-  (assoc key (cdr (assoc object *info*))))
+  ($assoc key (cdr ($assoc object *info*))))
 
 (defun set-info (object key value)
-  (let ((info (assoc object *info*)))
+  (let ((info ($assoc object *info*)))
     (if info
-        (let ((key-value (assoc key (cdr info))))
+        (let ((key-value ($assoc key (cdr info))))
           (if key-value
               (setf (cdr key-value) value)
               (setf (cdr info) (acons key value (cdr info)))))
@@ -1246,16 +1261,15 @@
 (defun macro-function-p (symbol)
   (cdr (get-info symbol :macro-function)))
 
-(defun var-kind (var r f)
-  (declare (ignore f))
+(defun var-kind (var r)
   (if ($member var (car r))
       :local
       (labels ((f (x)
-                 (if (endp x)
-                     :dynamic
+                 (if x
                      (if ($member var (car x))
                          :lexical
-                         (f (cdr x))))))
+                         (f (cdr x)))
+                     :dynamic)))
         (f (cdr r)))))
 
 (defun prt-push-dynamic (symbol)
@@ -1318,6 +1332,12 @@
       (if (eq item (car list))
           t
           ($member item (cdr list)))))
+
+(defun $assoc (item alist)
+  (if alist
+      (if (eq item (caar alist))
+          (car alist)
+          ($assoc item (cdr alist)))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun pir-file-name (file)
   (string+ (subseq file 0 (- (length file) 4)) "pir"))
@@ -1328,20 +1348,6 @@
     (compile-lisp-to-pir file pir-file)
     ;;(compile-pir-to-pbc pir-file pbc-file)
     ))
-
-(defun %macroexpand (form)
-  (if ($consp form)
-      (if ($member (car form) '(defvar defun defmacro))
-          form
-          (if (eq 'in-package (car form))
-              ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-                     ($list 'setq '*package*
-                            ($list 'find-package (cadr form))))
-              (let ((expanded-form (macroexpand-1 form)))
-                (if (eq expanded-form form)
-                    form
-                    (%macroexpand expanded-form)))))
-      form))
 
 (defun read-loop (in)
   (let ((form ($read in)))

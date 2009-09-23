@@ -75,3 +75,24 @@ intern:
         internal = getattribute self, 'internal-symbols'
         delete internal[symbol_name]
 .end
+
+
+.namespace [ "CHOCO";"KEYWORD-PACKAGE" ]
+
+.sub 'intern' :method
+        .param string name
+        .local pmc symbol
+        symbol = self.'find-symbol'(name)
+        $I0 = isnull symbol
+        if $I0 goto intern
+        .return(symbol)
+intern:
+        symbol = new ["CHOCO";"SYMBOL"]
+        symbol = name
+        setattribute symbol, 'package', self
+        setattribute symbol, 'value', self
+        .local pmc external
+        external = getattribute self, 'external-symbols'
+        external[name] = symbol
+        .return(symbol)
+.end

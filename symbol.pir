@@ -4,6 +4,7 @@
         .nil
         setattribute self, 'plist', nil
         setattribute self, 'special-var-p', nil
+        setattribute self, 'macro-function', nil
 .end
 
 .sub get_string :vtable

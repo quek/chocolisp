@@ -3,15 +3,15 @@
 (defun $read (in)
   (skip-whitespace in)
   (print
-  (let ((c ($peek-char in)))
-    (if c
-        (if (string= "(" c)
-            (read-list in)
-            (if (string= ";")
-                (progn
-                  ($read-line in)
-                  ($read in))
-                (read-atom))))))
+   (let ((c ($peek-char in)))
+     (if c
+         (if (string= "(" c)
+             (read-list in)
+             (if (string= ";")
+                 (progn
+                   ($read-line in)
+                   ($read in))
+                 (read-atom))))))
   )
 
 (defun skip-whitespace (in)
@@ -41,48 +41,51 @@
   (let ((c ($read-char in)))
     (if (string= c "\"")
         (read-string in "")
-        (if (string< c "0")
+        (if (or (string< c "0")
+                (string< "9" c))
             (read-symbol in c "" nil t)
-            (if (string< "9" c)
-                (read-symbol in c "" nil t)
-                (read-number in c))))))
+            (read-number in c)))))
 
 (defun read-string (in acc)
-  (print 'read-string)
-  (print
-  (let ((c ($read-char in)))
-    (if (string= c "\"")
-        acc
-        (if (string= c "\\")
-            (read-string in (string+ acc ($read-char in)))
-            (read-string in (string+ acc c))))))
-  )
+   (let ((c ($read-char in)))
+     (if (string= c "\"")
+         acc
+         (if (string= c "\\")
+             (read-string in (string+ acc ($read-char in)))
+             (read-string in (string+ acc c))))))
 
 (defun read-number (in acc)
-  (let ((c ($read-char in)))
-    (if c
-        (if (string<= c " ")
-            (string-to-number acc)
-            (read-number in (string+ acc c)))
-        (string-to-number acc))))
+  (let ((c ($peek-char in)))
+    (if (or (null c)
+            (string<= c " ")
+            (string= c "(")
+            (string= c ")")
+            (string= c ";"))
+        (string-to-number acc)
+        (read-number in (string+ acc ($read-char in))))))
 
 (defun read-symbol (in acc1 acc2 packagep exportp)
-  (let ((c ($read-char in)))
-    (if c
-        (if (string<= c " ")
-            (string-to-symbol acc1 acc2 packagep exportp)
-            (if (string= c ":")
-                (if packagep
-                    (read-symbol in acc1 acc2 packagep nil)
-                    (read-symbol in acc1 acc2 t exportp))
-                (if packagep
-                    (read-symbol in acc1 (string+ acc2 c) packagep exportp)
-                    (read-symbol in (string+ acc1 c) acc2 packagep exportp))))
-        (string-to-symbol acc1 acc2 packagep exportp))))
+  (let ((c ($peek-char in)))
+    (if (or (null c)
+            (string<= c " ")
+            (string= c "(")
+            (string= c ")")
+            (string= c ";"))
+        (string-to-symbol acc1 acc2 packagep exportp)
+        (let ((c ($read-char in)))
+          (if (string= c ":")
+              (if packagep
+                  (read-symbol in acc1 acc2 packagep nil)
+                  (read-symbol in acc1 acc2 t exportp))
+              (if packagep
+                  (read-symbol in acc1 (string+ acc2 c) packagep exportp)
+                  (read-symbol in (string+ acc1 c) acc2 packagep exportp)))))))
 
 (defun string-to-symbol (acc1 acc2 packagep exportp)
   (if packagep
-      (if exportp
-          ($find-export-symbol acc1 acc2)
-          ($intern acc2 (find-package acc1)))
+      (if (string= acc1 "")
+          ($intern acc2 (find-package "KEYWORD"))
+          (if exportp
+              ($find-export-symbol acc1 acc2)
+              ($intern acc2 (find-package acc1))))
       ($intern acc1 *package*)))
