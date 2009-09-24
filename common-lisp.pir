@@ -383,6 +383,13 @@ end:
         .tailcall 'CDR'($P0)
 .end
 
+.sub 'CDDDR'
+        .param pmc x
+        $P0 = 'CDR'(x)
+        $P0 = 'CDR'($P0)
+        .tailcall 'CDR'($P0)
+.end
+
 .sub 'CDAR'
         .param pmc x
         $P0 = 'CAR'(x)

@@ -30,12 +30,22 @@
   (is 2 (%cadr 1))
   (is 20 (%caddr '(10 20 30))))
 
+(let ((x 10))
+  (flet ((g ()
+           x))
+    (is 10 (g))))
+
 (labels ((%cadr (x)
            (+ x 1))
          (%caddr (x)
            (%cadr x)))
   (is 2 (%cadr 1))
   (is 3 (%caddr 2)))
+
+(let ((x 1))
+  (labels ((f ()
+             x))
+    (is 1 (f))))
 
 (defun %mapcar-test (fun args)
   (%mapcar (lambda (x) (+ x 1)) args))

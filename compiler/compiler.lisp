@@ -66,17 +66,16 @@
                            (let ((name (car form)))
                              (cons name ($gensym ($symbol-name name)))))
                          flet-form))
-         (fdefs ($mapcar (lambda (fnames form)
-                          (make-flat-function
-                           (cdr fnames)
-                           (cadr form)
-                           (objectify-progn (cddr form)
-                                            (extend-r r (cadr form)) f)
-                           nil nil nil nil))
-                        fnames flet-form))
+         (lambdas ($mapcar (lambda (name form)
+                             (make-lambda
+                              (cdr name)
+                              (cadr form)
+                              (objectify-progn (cddr form)
+                                               (extend-r r (cadr form)) f)))
+                           fnames flet-form))
          (new-f (extend-f f fnames))
          (body (objectify-progn body-form r new-f)))
-    (make-flet fdefs body)))
+    (make-flet lambdas body)))
 
 (defun %objectify-labels (acc labels-form body-form r f)
   (if labels-form
@@ -85,17 +84,17 @@
              (gensym-label ($gensym ($symbol-name label)))
              (lambda-list (cadr def))
              (body (cddr def)))
-        (%objectify-labels
-         (cons (make-flat-function
-                gensym-label
-                lambda-list
-                (objectify-progn body (extend-r r lambda-list) f)
-                nil nil nil nil)
-               acc)
-         (cdr labels-form)
-         body-form
-         r
-         (extend-f f ($list (cons label gensym-label)))))
+        (%objectify-labels (cons (make-lambda
+                                  gensym-label
+                                  lambda-list
+                                  (objectify-progn body
+                                                   (extend-r r lambda-list)
+                                                   f))
+                                 acc)
+                           (cdr labels-form)
+                           body-form
+                           r
+                           (extend-f f ($list (cons label gensym-label)))))
       (make-flet acc (objectify-progn body-form r f))))
 
 (defun objectify-labels (labels-form body-form r f)
@@ -163,8 +162,12 @@
     (make-let* (%make-let*-bindings bindings r f nil)
                (objectify-progn body (extend-r r vars) f))))
 
-(defun objectify-lambda (vars body r f)
-  (make-lambda vars (objectify-progn body (extend-r r vars) f)))
+(defun objectify-lambda (lambda-list body r f)
+  (make-lambda ($gensym "lambda")
+               lambda-list
+               (objectify-progn body
+                                (extend-r r (collect-vars lambda-list))
+                                f)))
 
 (defun objectify-function (name r f)
   (if (symbolp name)
@@ -173,9 +176,9 @@
           (make-global-function-reference name))
       (if (and ($consp name)
                (eq 'lambda (car name)))
-          (let ((vars (cadr name))
+          (let ((lambda-list (cadr name))
                 (body (cddr name)))
-            (make-lambda vars (objectify-progn body (extend-r r vars) f)))
+            (objectify-lambda lambda-list body r f))
           ($error (string+ "Invalid function name " name)))))
 
 (defun objectify-defun (name lambda-list body r f)
@@ -513,17 +516,17 @@
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-lambda (lambda-list body)
-  (let ((super (make-program :lambda-list lambda-list :body body))
+(defun make-lambda (name lambda-list body)
+  (let ((super (make-program :name name :lambda-list lambda-list :body body))
         self)
     (setq self
           (lambda (message &rest args)
             (case message
               (:東京ミュウミュウ-metamorphose!
-                 (let* ((lambda-list (funcall self :get :lambda-list))
+                 (let* ((name (funcall self :get :name))
+                        (lambda-list (funcall self :get :lambda-list))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (name ($gensym "lambda"))
                         (flat-function (make-flat-function
                                         name
                                         lambda-list
@@ -544,23 +547,20 @@
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-flet (fdefs body)
-  (let ((super (make-program :fdefs fdefs :body body))
+(defun make-flet (lambdas body)
+  (let ((super (make-program :lambdas lambdas :body body))
         self)
     (setq self
           (lambda (message &rest args)
             (case message
               (:東京ミュウミュウ-metamorphose!
-                 (let ((fdefs (funcall self :get :fdefs))
+                 (let ((lambdas (funcall self :get :lambdas))
                        (body  (funcall self :get :body))
                        (outers (car args)))
-                   ($mapcar (lambda (fdef)
-                             (funcall (car outers)
-                                      :add :inner-functions
-                                      (funcall fdef
-                                               :東京ミュウミュウ-metamorphose!
-                                               outers)))
-                           fdefs)
+                   ($mapcar (lambda (x)
+                             (funcall x :東京ミュウミュウ-metamorphose!
+                                      outers))
+                            lambdas)
                    (funcall body :東京ミュウミュウ-metamorphose! outers)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1067,13 +1067,9 @@
               (:pir
                  (let ((name (funcall self :get :name))
                        (values (funcall self :get :values))
-                       (fun (next-var))
                        (result (next-var)))
-                   (prt ".const 'Sub' " fun
-                        " = " (parrot-sub-name name))
-                   (prt fun " = newclosure " fun)
-                   (prt result " = " fun "(" (join "," (funcall values :pir))
-                        ")")
+                   (prt result " = " (parrot-sub-name name)
+                        "(" (join "," (funcall values :pir)) ")")
                    result))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
