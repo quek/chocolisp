@@ -92,6 +92,13 @@
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))
 
+(defun compile-all ()
+  (mapcar #'parrot-compile-file
+          '("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"
+            "/home/ancient/letter/parrot/chocolisp/compiler/ch-compiler.lisp"
+            "/home/ancient/letter/parrot/chocolisp/chimacho/read.lisp"
+            "/home/ancient/letter/parrot/chocolisp/compiler/compiler.lisp")))
+
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/chimacho/read.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/compiler.lisp")
 ;;(compile-and-run "/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")

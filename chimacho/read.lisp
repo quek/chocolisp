@@ -2,15 +2,16 @@
 
 (defun $read (in)
   (skip-whitespace in)
-   (let ((c ($peek-char in)))
-     (if c
-         (if (string= "(" c)
-             (read-list in)
-             (if (string= c ";")
-                 (progn
-                   ($read-line in)
-                   ($read in))
-                 (read-atom in))))))
+  (let ((c ($peek-char in)))
+    (print c)
+    (if c
+        (if (string= "(" c)
+            (read-list in)
+            (if (string= c ";")
+                (progn
+                  ($read-line in)
+                  ($read in))
+                (read-atom in))))))
 
 (defun skip-whitespace (in)
   (let ((c ($peek-char in)))
@@ -19,14 +20,16 @@
                (skip-whitespace in)))))
 
 (defun read-list (in)
-  ($read-char in)                        ; skip ;
+  ($read-char in)                        ; skip (
   (%read-list in nil))
 
 (defun %read-list (in acc)
   (skip-whitespace in)
   (let ((c ($peek-char in)))
     (if (string= c ")")
-        ($reverse acc)
+        (progn
+          ($read-char in)
+          ($reverse acc))
         (if (string= c "(")
             (%read-list in (cons (read-list in) acc))
             (if (string= c ";")
@@ -46,12 +49,12 @@
             (read-number in ($read-char in))))))
 
 (defun read-string (in acc)
-   (let ((c ($read-char in)))
-     (if (string= c "\"")
-         acc
-         (if (string= c "\\")
-             (read-string in (string+ acc ($read-char in)))
-             (read-string in (string+ acc c))))))
+  (let ((c ($read-char in)))
+    (if (string= c "\"")
+        acc
+        (if (string= c "\\")
+            (read-string in (string+ acc ($read-char in)))
+            (read-string in (string+ acc c))))))
 
 (defun read-number (in acc)
   (let ((c ($peek-char in)))
