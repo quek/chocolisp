@@ -528,19 +528,19 @@
                         (lambda-list (funcall self :get :lambda-list))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (flat-function
-                         (make-flat-function
-                          name
-                          lambda-list
-                          (funcall body :東京ミュウミュウ-metamorphose!
-                                   outers)
-                          nil
-                          nil
-                          outers
-                          nil)))
+                        (flat-function (make-flat-function name
+                                                           lambda-list
+                                                           nil
+                                                           nil
+                                                           nil
+                                                           outers
+                                                           nil)))
                    (if outers
                        (funcall (car outers) :add
                                 :inner-functions flat-function))
+                   (funcall flat-function :set :body
+                            (funcall body :東京ミュウミュウ-metamorphose!
+                                     (cons flat-function outers)))
                    (make-extracted-lambda name)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))

@@ -1,5 +1,18 @@
 (in-package :chimacho)
 
+(defun defun-lambda-let ()
+  (lambda (msg)
+    (let ()
+      (car msg))))
+(is 2 (funcall (defun-lambda-let) '(2)))
+
+(defun msg ()
+  (lambda (message)
+    (case message
+      (t (let ((ret (apply #'car message nil)))
+           ret)))))
+(is 3 (funcall (msg) '(3)))
+
 (let ((x 0))
   (defun get-x ()
     x))
