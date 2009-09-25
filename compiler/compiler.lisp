@@ -22,8 +22,9 @@
             (objectify-let (cadr form) (cddr form) r f))
         (let*
             (objectify-let* (cadr form) (cddr form) r f))
-        (lambda
-            (objectify-lambda (cadr form) (cddr form) r f))
+        ;; function があるので不要
+        #|(lambda
+            (objectify-lambda (cadr form) (cddr form) r f))|#
         (function
            (objectify-function (cadr form) r f))
         (progn
@@ -480,7 +481,7 @@
                    (make-extracted-let
                     name
                     (funcall values :東京ミュウミュウ-metamorphose!
-                             (cons flat-function outers)))))
+                             outers))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -527,22 +528,19 @@
                         (lambda-list (funcall self :get :lambda-list))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (flat-function (make-flat-function
-                                        name
-                                        lambda-list
-                                        nil
-                                        nil
-                                        nil
-                                        outers
-                                        nil)))
+                        (flat-function
+                         (make-flat-function
+                          name
+                          lambda-list
+                          (funcall body :東京ミュウミュウ-metamorphose!
+                                   outers)
+                          nil
+                          nil
+                          outers
+                          nil)))
                    (if outers
                        (funcall (car outers) :add
                                 :inner-functions flat-function))
-                   (funcall flat-function
-                            :set
-                            :body
-                            (funcall body :東京ミュウミュウ-metamorphose!
-                                     (cons flat-function outers)))
                    (make-extracted-lambda name)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -1082,10 +1080,10 @@
             (case message
               (:pir
                  (let ((name (funcall self :get :name))
-                       (sub (next-var))
                        (var (next-var)))
-                   (prt ".const 'Sub' " sub " = " (parrot-sub-name name))
-                   (prt var " = newclosure " sub)
+                   (prt ".const 'Sub' " var " = " (parrot-sub-name name))
+                   ;; TODO newclosure の気持ちがわからない
+                   ;;(prt var " = newclosure " var)
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
