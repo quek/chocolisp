@@ -76,6 +76,12 @@
            x))
     (is 10 (g))))
 
+(labels ((my-len (l n)
+           (if l
+               (my-len (cdr l) (+ n 1))
+               n)))
+  (is 3 (my-len '(a a a) 0)))
+
 (labels ((%cadr (x)
            (+ x 1))
          (%caddr (x)

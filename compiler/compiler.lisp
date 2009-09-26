@@ -84,18 +84,19 @@
              (label (car def))
              (gensym-label ($gensym ($symbol-name label)))
              (lambda-list (cadr def))
-             (body (cddr def)))
+             (body (cddr def))
+             (new-f (extend-f f ($list (cons label gensym-label)))))
         (%objectify-labels (cons (make-lambda
                                   gensym-label
                                   lambda-list
                                   (objectify-progn body
                                                    (extend-r r lambda-list)
-                                                   f))
+                                                   new-f))
                                  acc)
                            (cdr labels-form)
                            body-form
                            r
-                           (extend-f f ($list (cons label gensym-label)))))
+                           new-f))
       (make-flet acc (objectify-progn body-form r f))))
 
 (defun objectify-labels (labels-form body-form r f)
