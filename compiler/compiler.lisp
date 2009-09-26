@@ -106,13 +106,15 @@
   (if (eq 'cl:*package* symbol)
       (make-change-package
        value-form (make-dynamic-assignment symbol (objectify value-form r f)))
-      (ecase (var-kind symbol r)
+      (case (var-kind symbol r)
         (:local
            (make-local-assignment symbol (objectify value-form r f)))
         (:lexical
            (make-lexical-assignment symbol (objectify value-form r f)))
         (:dynamic
-           (make-dynamic-assignment symbol (objectify value-form r f))))))
+           (make-dynamic-assignment symbol (objectify value-form r f)))
+        (t
+           ($error (string+ symbol " is unknown variable."))))))
 
 (defun objectify-defvar (symbol value-form r f)
   (set-info symbol :kind :special)
@@ -248,7 +250,7 @@
         (vars (make-vars vars)))
     (setq self
           (lambda (message &rest args)
-            (ecase message
+            (case message
               (:toplevelp
                  nil)
               (:all-vars
@@ -262,7 +264,9 @@
               (:add
                  (let ((cons ($assoc (car args) vars)))
                    (if cons
-                       ($rplacd cons (cons (cadr args) (cdr cons)))))))))))
+                       ($rplacd cons (cons (cadr args) (cdr cons))))))
+              (t
+                 ($error (string+ message " in unknown message."))))))))
 
 (defun make-program (&rest vars)
   (let ((super (apply #'make-object vars))
