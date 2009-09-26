@@ -155,15 +155,18 @@
               (objectify-progn body (extend-r r vars) f))))
 
 (defun objectify-let* (bindings body r f)
-  (let* ((bindings ($mapcar (lambda (x)
-                             (if (atom x)
-                                 (cons x nil)
-                                 x))
-                           bindings))
-         (vars ($mapcar #'car bindings)))
-    (make-let* vars
-               (%make-let*-bindings bindings r f nil)
-               (objectify-progn body (extend-r r vars) f))))
+  (if bindings
+      (let* ((bind (let ((x (car bindings)))
+                     (if (atom x) (cons x nil) x)))
+             (vars (cons (car bind) nil))
+             (value (cadr bind)))
+        (make-let vars
+                  (list-to-arguments (cons (objectify value r f) nil))
+                  (objectify-let* (cdr bindings)
+                                  body
+                                  (extend-r r vars)
+                                  f)))
+      (objectify-progn body r f)))
 
 (defun objectify-lambda (lambda-list body r f)
   (make-lambda ($gensym "lambda")
@@ -487,40 +490,6 @@
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-let* (vars bindings body)
-  (let ((super (make-program :vars vars :bindings bindings :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((vars (funcall self :get :vars))
-                        (bindings (funcall self :get :bindings))
-                        (body (funcall self :get :body))
-                        (outers (car args))
-                        (name ($gensym "let*"))
-                        (flat-let*-function (make-flat-let*-function
-                                             name
-                                             vars
-                                             nil
-                                             nil
-                                             nil
-                                             nil
-                                             outers
-                                             nil)))
-                   (if outers
-                       (funcall (car outers) :add
-                                :inner-functions flat-let*-function))
-                   (funcall flat-let*-function :set :bindings
-                            (funcall bindings :東京ミュウミュウ-metamorphose!
-                                     (cons flat-let*-function outers)))
-                   (funcall flat-let*-function :set :body
-                            (funcall body :東京ミュウミュウ-metamorphose!
-                                     (cons flat-let*-function outers)))
-                   (make-extracted-let name (make-no-argument))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
 (defun make-lambda (name lambda-list body)
   (let ((super (make-program :name name :lambda-list lambda-list :body body))
         self)
@@ -646,44 +615,6 @@
               (:pir nil)
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
-
-(defun %make-let*-bindings (bindings r f ex-r)
-  (if bindings
-      (let ((first (car bindings)))
-        (make-let*-bindings (car first)
-                            (objectify (cadr first) (extend-r r ex-r) f)
-                            (%make-let*-bindings (cdr bindings) r f
-                                                 (cons (car first) ex-r))))
-      (make-let*-no-bindings)))
-
-(defun make-let*-bindings (var value rest)
-  (let ((super (make-program :var var :value value :rest rest))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((var (funcall self :get :var))
-                       (value  (funcall self :get :value))
-                       (rest  (funcall self :get :rest)))
-                   (prt ".local pmc " (parrot-var var))
-                   (prt (parrot-var var) " = " (funcall value :pir))
-                   (if (special-var-p var)
-                       (prt-push-dynamic var))
-                   (funcall rest :pir)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-let*-no-bindings ()
-  (let ((super (make-program))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir nil)
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
 
 (defun make-function (symbol)
   (let ((super (make-program :symbol symbol))
@@ -974,60 +905,6 @@
                    ($mapcar (lambda (var)
                               (let ((var (parrot-var var)))
                                 (prt ".lex '" var "', " var)))
-                            lexical-store)
-                   (let ((ret (funcall body :pir)))
-                     (prt ".return(" ret ")"))
-                   (prt-top ".end")
-                   (new-line)
-                   ($mapcar (lambda (x)
-                              (funcall x :pir))
-                            inner-functions)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-flat-let*-function (name
-                                lambda-list
-                                bindings
-                                body
-                                inner-functions
-                                lexical-store
-                                outers
-                                modifiers)
-  (let ((super (make-program :name name :lambda-list lambda-list
-                             :bindings bindings :body body
-                             :inner-functions inner-functions
-                             :lexical-store lexical-store
-                             :outers outers
-                             :modifiers modifiers))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp t)
-              (:pir
-                 (let ((*var-counter* 0)
-                       (*label-counter* 0)
-                       (name (funcall self :get :name))
-                       (bindings (funcall self :get :bindings))
-                       (body (funcall self :get :body))
-                       (outers (funcall self :get :outers))
-                       (inner-functions (funcall self :get :inner-functions))
-                       (lexical-store (funcall self :get :lexical-store))
-                       (modifiers (join " " (funcall self :get :modifiers))))
-                   (if outers
-                       (prt-top ".sub "
-                                (parrot-sub-name name)
-                                " :outer("
-                                (parrot-sub-name (funcall (car outers)
-                                                          :get :name))
-                                ") "
-                                modifiers)
-                       (prt-top ".sub " (parrot-sub-name name) modifiers))
-                   (funcall bindings :pir)
-                   ($mapcar (lambda (var)
-                              (prt ".lex '"
-                                   (parrot-var var)
-                                   "', " (parrot-var var)))
                             lexical-store)
                    (let ((ret (funcall body :pir)))
                      (prt ".return(" ret ")"))
