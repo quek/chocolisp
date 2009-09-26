@@ -161,7 +161,8 @@
                                  x))
                            bindings))
          (vars ($mapcar #'car bindings)))
-    (make-let* (%make-let*-bindings bindings r f nil)
+    (make-let* vars
+               (%make-let*-bindings bindings r f nil)
                (objectify-progn body (extend-r r vars) f))))
 
 (defun objectify-lambda (lambda-list body r f)
@@ -486,19 +487,21 @@
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-let* (bindings body)
-  (let ((super (make-program :bindings bindings :body body))
+(defun make-let* (vars bindings body)
+  (let ((super (make-program :vars vars :bindings bindings :body body))
         self)
     (setq self
           (lambda (message &rest args)
             (case message
               (:東京ミュウミュウ-metamorphose!
-                 (let* ((bindings (funcall self :get :bindings))
+                 (let* ((vars (funcall self :get :vars))
+                        (bindings (funcall self :get :bindings))
                         (body (funcall self :get :body))
                         (outers (car args))
-                        (name ($gensym "let"))
+                        (name ($gensym "let*"))
                         (flat-let*-function (make-flat-let*-function
                                              name
+                                             vars
                                              nil
                                              nil
                                              nil
@@ -983,13 +986,15 @@
                    (if (eq ret super) self ret))))))))
 
 (defun make-flat-let*-function (name
+                                lambda-list
                                 bindings
                                 body
                                 inner-functions
                                 lexical-store
                                 outers
                                 modifiers)
-  (let ((super (make-program :name name :bindings bindings :body body
+  (let ((super (make-program :name name :lambda-list lambda-list
+                             :bindings bindings :body body
                              :inner-functions inner-functions
                              :lexical-store lexical-store
                              :outers outers
