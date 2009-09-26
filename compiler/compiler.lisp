@@ -103,8 +103,8 @@
 
 (defun objectify-setq (symbol value-form r f)
   (if (eq 'cl:*package* symbol)
-      (make-change-package value-form
-                           (make-dynamic-assignment symbol (objectify value-form r f)))
+      (make-change-package
+       value-form (make-dynamic-assignment symbol (objectify value-form r f)))
       (ecase (var-kind symbol r)
         (:local
            (make-local-assignment symbol (objectify value-form r f)))
@@ -609,9 +609,7 @@
                    (if outers
                        (funcall (car outers) :add
                                 :inner-functions flat-function))
-                   (funcall flat-function
-                            :set
-                            :body
+                   (funcall flat-function :set :body
                             (funcall body
                                      :東京ミュウミュウ-metamorphose!
                                      (cons flat-function outers)))
@@ -1066,6 +1064,9 @@
                  (let ((name (funcall self :get :name))
                        (values (funcall self :get :values))
                        (result (next-var)))
+                   (let ((p (next-var)))
+                     (prt ".const 'Sub' " p " = " (parrot-sub-name name))
+                     (prt "capture_lex " p))
                    (prt result " = " (parrot-sub-name name)
                         "(" (join "," (funcall values :pir)) ")")
                    result))
@@ -1083,7 +1084,7 @@
                        (var (next-var)))
                    (prt ".const 'Sub' " var " = " (parrot-sub-name name))
                    ;; TODO newclosure の気持ちがわからない
-                   ;;(prt var " = newclosure " var)
+                   (prt var " = newclosure " var)
                    var))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))

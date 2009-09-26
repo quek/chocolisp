@@ -1,5 +1,33 @@
 (in-package :chimacho)
 
+(defun deep-lex (n)
+  (let ()
+    (let ()
+      (lambda ()
+        (let ()
+          (let ()
+            n))))))
+(let ((f1 (deep-lex 1))
+      (f2 (deep-lex 2)))
+  (is 1 (funcall f1))
+  (is 2 (funcall f2)))
+
+(defun let-over-lambda-0 (n)
+  (let ((x (+ 1 n)))
+    (lambda (message &rest args)
+      (case message
+        (:get x)
+        (:set (setq x (car args)))))))
+(defun let-over-lambda-1 (n)
+  (let ((super (let-over-lambda-0 n)))
+    (lambda (&rest args)
+      (apply super args))))
+(let ((x (let-over-lambda-1 1)))
+  (is 2 (funcall x :get))
+  (funcall x :set 7)
+  (is 7 (funcall x :get)))
+
+
 (defun defun-lambda-let ()
   (lambda (msg)
     (let ()
