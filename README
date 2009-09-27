@@ -6,6 +6,8 @@
 
  - in-package
  - 末尾再帰
+ - 分解した let 等の呼び出しは newclosure で、普通のローカル関数の呼び出しは
+   newclosure 不要。たぶん。
  - sub のメモリ。再定義でどうなるか。
  - .lex, store_lex, find_lex, newclosure の整理
 

@@ -44,7 +44,6 @@
         (defvar
             (objectify-defvar (cadr form) (caddr form) r f))
         (in-package
-           (print "case in-package!")
            (objectify
             ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
                    ($list 'setq '*package*
@@ -633,13 +632,11 @@
             (case message
               (:pir
                  (let ((symbol (funcall self :get :symbol))
+                       (sub (next-var))
                        (return-value (next-var)))
-                   (prt return-value
-                        " = "
-                        (parrot-sub-name symbol)
-                        "("
-                        (join ", " args)
-                        ")")
+                   (prt ".const 'Sub' " sub " = " (parrot-sub-name symbol))
+                   (prt sub " = newclosure " sub)
+                   (prt return-value " = " sub "(" (join ", " args) ")")
                    return-value))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
@@ -946,11 +943,11 @@
               (:pir
                  (let ((name (funcall self :get :name))
                        (values (funcall self :get :values))
+                       (sub (next-var))
                        (result (next-var)))
-                   (let ((p (next-var)))
-                     (prt ".const 'Sub' " p " = " (parrot-sub-name name))
-                     (prt "capture_lex " p))
-                   (prt result " = " (parrot-sub-name name)
+                   (prt ".const 'Sub' " sub " = " (parrot-sub-name name))
+                   (prt sub " = newclosure " sub)
+                   (prt result " = " sub
                         "(" (join "," (funcall values :pir)) ")")
                    result))
               (t (let ((ret (apply super message args)))
