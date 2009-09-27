@@ -44,3 +44,8 @@
 ;; 完全にダミー
 (defun $eval (form)
   form)
+
+(in-package :common-lisp)
+
+(defun acons (key datum alist)
+  (cons (cons key datum) alist))
