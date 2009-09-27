@@ -1,14 +1,14 @@
 (in-package :chimacho)
 
-(defun deep-lex (n)
+(defun deep-let (n)
   (let ()
     (let ()
       (lambda ()
         (let ()
           (let ()
             n))))))
-(let ((f1 (deep-lex 1))
-      (f2 (deep-lex 2)))
+(let ((f1 (deep-let 1))
+      (f2 (deep-let 2)))
   (is 1 (funcall f1))
   (is 2 (funcall f2)))
 

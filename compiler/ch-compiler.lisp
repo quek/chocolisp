@@ -6,6 +6,9 @@
           (list 'lambda lambda-list
                 (cons 'progn form)))))
 
+(defmacro lambda (&rest form)
+  (cons 'function form))
+
 (defmacro in-package (name)
   (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
         (list 'setq '*package* (list 'find-package name))))

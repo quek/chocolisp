@@ -22,9 +22,6 @@
             (objectify-let (cadr form) (cddr form) r f))
         (let*
             (objectify-let* (cadr form) (cddr form) r f))
-        ;; function があるので不要
-        #|(lambda
-            (objectify-lambda (cadr form) (cddr form) r f))|#
         (function
            (objectify-function (cadr form) r f))
         (progn
@@ -557,9 +554,8 @@
             (case message
               (:pir
                  (let ((function (funcall self :get :function))
-                       (arguments (funcall self :get :arguments))
-                       (args (next-var)))
-                   (apply function :pir (funcall arguments :pir args))))
+                       (arguments (funcall self :get :arguments)))
+                   (apply function :pir (funcall arguments :pir))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
