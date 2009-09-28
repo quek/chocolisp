@@ -53,3 +53,16 @@
 
 (defun acons (key datum alist)
   (cons (cons key datum) alist))
+
+(defun %append2 (x y)
+  (if x
+      (cons (car x) (%append2 (cdr x) y))
+      y))
+
+(defun %append (first rest)
+  (if rest
+      (%append2 first (%append (car rest) (cdr rest)))
+      first))
+
+(defun append (&rest lists)
+  (%append (car lists) (cdr lists)))
