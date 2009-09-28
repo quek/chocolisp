@@ -356,6 +356,13 @@ end:
         .tailcall 'CAR'($P0)
 .end
 
+.sub 'CADAR'
+        .param pmc x
+        $P0 = 'CAR'(x)
+        $P0 = 'CDR'($P0)
+        .tailcall 'CAR'($P0)
+.end
+
 .sub 'CADDR'
         .param pmc x
         $P0 = 'CDR'(x)
