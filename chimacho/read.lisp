@@ -148,7 +148,7 @@
           (t
            (%back-quote (cdr form) level
                         (lambda (x)
-                          (funcall c (cons (list 'quote car) x))))))))
+                          (funcall c (list (list 'quote car) x))))))))
 
 ;;(assert (equal 1 (back-quote 1)))
 ;;(assert (equal '(a) (back-quote (a))))
