@@ -125,6 +125,7 @@ NOTFOUND:
         say "==== end compiler/ch-compiler.pir ===="
 
         say "==== start chimacho/read.pir ===="
+        load_bytecode "chimacho/back-quote.pir"
         load_bytecode "chimacho/read.pir"
         say "==== end chimacho/read.pir ===="
 
