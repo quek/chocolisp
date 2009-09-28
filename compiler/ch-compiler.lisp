@@ -36,16 +36,20 @@
 (defun $macroexpand (form)
   (if (eq (car form) 'defmacro)
       (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-            (list '$set-attribute (cons 'quote (cadr form)) "macro-function"
-                  (list 'lambda (caddr lambda-list)
-                        (cons 'progn (cddd form)))))
+            (list '$set-attribute (list 'quote (cadr form)) "macro-function"
+                  (list 'lambda (caddr form)
+                        (cons 'progn (cdddr form)))))
       (funcall (macro-function (car form)) form)))
 
 ;; 完全にダミー
 (defun $eval (form)
   form)
 
+
 (in-package :common-lisp)
+
+(defun list (&rest list)
+  list)
 
 (defun acons (key datum alist)
   (cons (cons key datum) alist))
