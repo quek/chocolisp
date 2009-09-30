@@ -6,7 +6,7 @@
     (if c
         (cond ((string= "'" c)
                ($read-char in)
-               (cons 'quote ($read in)))
+               (list 'quote ($read in)))
               ((string= "`" c)
                ($read-char in)
                (read-back-quote in))

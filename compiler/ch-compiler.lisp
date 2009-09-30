@@ -7,7 +7,7 @@
                 (cons 'progn form)))))
 
 (defmacro lambda (&rest form)
-  (cons 'function form))
+  (list 'function (cons 'lambda form)))
 
 (defmacro in-package (name)
   (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
@@ -37,9 +37,8 @@
   (if (eq (car form) 'defmacro)
       (list 'eval-when '(:compile-toplevel :load-toplevel :execute)
             (list '$set-attribute (list 'quote (cadr form)) "macro-function"
-                  (list 'lambda (caddr form)
-                        (cons 'progn (cdddr form)))))
-      (funcall (macro-function (car form)) form)))
+                  (cons 'lambda (cddr form))))
+      (apply (macro-function (car form)) (cdr form))))
 
 ;; 完全にダミー
 (defun $eval (form)

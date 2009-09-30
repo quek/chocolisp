@@ -1,5 +1,7 @@
 (in-package :chimacho)
 
+(is 1 (when t 1))
+
 (defun deep-let (n)
   (let ()
     (let ()

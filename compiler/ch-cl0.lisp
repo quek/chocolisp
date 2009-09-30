@@ -1,9 +1,13 @@
 (in-package :chimacho)
 
+(defmacro when (test &rest body)
+  `(if ,test
+       (progn ,@body)))
+
 (defmacro cond (&rest clouses)
   (if clouses
       `(if ,(caar clouses)
-           (progn ,@(cdar clauses))
+           (progn ,@(cdar clouses))
            (cond ,@(cdr clouses)))))
 
 (defmacro case (keyform &rest cases)
