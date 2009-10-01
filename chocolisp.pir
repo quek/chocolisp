@@ -116,8 +116,6 @@ NOTFOUND:
         $P1 = $P0($P1)
         say $P1
 
-                load_bytecode "cl0/cl0.pir"
-
         ##say "==== start compiler/a.pir ===="
         ##load_bytecode "compiler/a.pir"
         ##say "==== end compiler/a.pir ===="
