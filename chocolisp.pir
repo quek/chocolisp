@@ -110,6 +110,9 @@ NOTFOUND:
 .namespace [ "CHOCO" ]
 
 .sub main :main
+        $P0 = new ["COMMON-LISP";"CHARACTER"]
+        $P0 = 48
+        say $P0
         .t
         .nil
 
