@@ -9,7 +9,7 @@
 
 .sub 'ATOM'
         .param pmc x
-        $I0 = isa x, ["CHOCO";"CONS"]
+        $I0 = isa x, ["COMMON-LISP";"CONS"]
         if $I0 goto false
         .t
         .return(t)
@@ -26,7 +26,7 @@ false:
 
 .sub 'CAR'
         .param pmc cons
-        $I0 = isa cons, ["CHOCO";"CONS"]
+        $I0 = isa cons, ["COMMON-LISP";"CONS"]
         if $I0 goto LCONS
         .nil
         eq_addr cons, nil, LNIL
@@ -40,7 +40,7 @@ LCONS:
 
 .sub 'CDR'
         .param pmc cons
-        $I0 = isa cons, ["CHOCO";"CONS"]
+        $I0 = isa cons, ["COMMON-LISP";"CONS"]
         if $I0 goto LCONS
         .nil
         eq_addr cons, nil, LNIL
@@ -76,7 +76,7 @@ true:
         $I0 = rest
         if $I0 goto rest_supplied
         eq_addr arg, nil, no_arg
-        $I0 = isa arg, ["CHOCO";"CONS"]
+        $I0 = isa arg, ["COMMON-LISP";"CONS"]
         unless $I0 goto error
         $P0 = list_to_array(arg)
         .tailcall f($P0 :flat)
@@ -136,7 +136,7 @@ true:
         .return($I0)
 .end
 
-.sub 'LENGTH' :multi(["CHOCO";"CONS"])
+.sub 'LENGTH' :multi(["COMMON-LISP";"CONS"])
         .param pmc x
         .nil
         $I0 = 0
@@ -235,7 +235,7 @@ true:
         .param pmc x
         .local pmc package
         package = find_package("COMMON-LISP")
-        $I0 = isa x, ["CHOCO";"SYMBOL"]
+        $I0 = isa x, ["COMMON-LISP";"SYMBOL"]
         if $I0 goto SYMBOL
         $I0 = isa x, "String"
         if $I0 goto STRING
@@ -269,14 +269,14 @@ true:
 .sub 'MAKE-SYMBOL'
         .param string name
         .local pmc symbol
-        symbol = new ["CHOCO";"SYMBOL"]
+        symbol = new ["COMMON-LISP";"SYMBOL"]
         symbol = name
         .return(symbol)
 .end
 
 .sub 'SYMBOLP'
         .param pmc x
-        $I0 = isa x, ["CHOCO";"SYMBOL"]
+        $I0 = isa x, ["COMMON-LISP";"SYMBOL"]
         if $I0 goto true
         .nil
         .return(nil)

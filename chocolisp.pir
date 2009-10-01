@@ -1,9 +1,11 @@
 .HLL "chocolisp"
 
 .include "parrot-macro.pir"
+.include "classes.pir"
+.include "cons.pir"
 .include "package.pir"
 .include "symbol.pir"
-.include "cons.pir"
+.include "character.pir"
 .include "chimacho.pir"
 
 .namespace []
@@ -11,7 +13,7 @@
 .sub cons
         .param pmc car
         .param pmc cdr
-        $P0 = new ["CHOCO";"CONS"]
+        $P0 = new ["COMMON-LISP";"CONS"]
         setattribute $P0, 'car', car
         setattribute $P0, 'cdr', cdr
         .return($P0)
@@ -59,7 +61,7 @@ end:
         .param pmc name
         .param pmc nicknames :slurpy
         .local pmc package, nicknames
-        package = new ["CHOCO";"PACKAGE"]
+        package = new ["COMMON-LISP";"PACKAGE"]
         setattribute package, 'name', name
         $P0 = getattribute package, 'nick-names'
         $P1 = iter nicknames
@@ -149,30 +151,6 @@ NOTFOUND:
         all_packages = new 'Hash'
         set_hll_global "*all-packages*", all_packages
 
-        $P0 = newclass ["CHOCO";"T"]
-
-        $P0 = subclass ["CHOCO";"T"], ["CHOCO";"CONS"]
-        addattribute $P0, 'car'
-        addattribute $P0, 'cdr'
-
-        $P0 = subclass ["CHOCO";"T"], "ATOM"
-
-        $P0 = subclass "ATOM", ["CHOCO";"PACKAGE"]
-        addattribute $P0, 'name'
-        addattribute $P0, 'nick-names'
-        addattribute $P0, 'use-list'
-        addattribute $P0, 'external-symbols'
-        addattribute $P0, 'internal-symbols'
-
-        $P0 = subclass "ATOM", ["CHOCO";"SYMBOL"]
-        addattribute $P0, 'name'
-        addattribute $P0, 'value'
-        addattribute $P0, 'function'
-        addattribute $P0, 'macro-function'
-        addattribute $P0, 'plist'
-        addattribute $P0, 'package'
-        addattribute $P0, 'special-var-p'
-
 
         .local pmc common_lisp_package
         common_lisp_package = make_package("COMMON-LISP", "CL")
@@ -196,9 +174,9 @@ NOTFOUND:
         use_list = getattribute cl_user, 'use-list'
         push use_list, common_lisp_package
 
-        $P0 = subclass ["CHOCO";"PACKAGE"], ["CHOCO";"KEYWORD-PACKAGE"]
+        $P0 = subclass ["COMMON-LISP";"PACKAGE"], ["COMMON-LISP";"KEYWORD-PACKAGE"]
         .local pmc keyword_package
-        keyword_package = new ["CHOCO";"KEYWORD-PACKAGE"]
+        keyword_package = new ["COMMON-LISP";"KEYWORD-PACKAGE"]
         $P1 = box "KEYWORD"
         setattribute keyword_package, 'name', $P1
         all_packages["KEYWORD"] = keyword_package

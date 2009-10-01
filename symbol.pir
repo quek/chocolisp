@@ -1,4 +1,15 @@
-.namespace [ "CHOCO";"SYMBOL" ]
+.namespace [ "COMMON-LISP";"SYMBOL" ]
+
+.sub '' :anon :init :load
+        $P0 = subclass ["COMMON-LISP";"ATOM"], ["COMMON-LISP";"SYMBOL"]
+        addattribute $P0, 'name'
+        addattribute $P0, 'value'
+        addattribute $P0, 'function'
+        addattribute $P0, 'macro-function'
+        addattribute $P0, 'plist'
+        addattribute $P0, 'package'
+        addattribute $P0, 'special-var-p'
+.end
 
 .sub init :vtable
         .nil

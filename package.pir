@@ -1,4 +1,13 @@
-.namespace [ "CHOCO";"PACKAGE" ]
+.namespace [ "COMMON-LISP";"PACKAGE" ]
+
+.sub '' :anon :init :load
+        $P0 = subclass ["COMMON-LISP";"ATOM"], ["COMMON-LISP";"PACKAGE"]
+        addattribute $P0, 'name'
+        addattribute $P0, 'nick-names'
+        addattribute $P0, 'use-list'
+        addattribute $P0, 'external-symbols'
+        addattribute $P0, 'internal-symbols'
+.end
 
 .sub init :vtable
         $P0 = new 'Hash'
@@ -64,7 +73,7 @@ L20:
         if $I0 goto intern
         .return(symbol)
 intern:
-        symbol = new ["CHOCO";"SYMBOL"]
+        symbol = new ["COMMON-LISP";"SYMBOL"]
         symbol = name
         setattribute symbol, 'package', self
         .local pmc internal
@@ -92,7 +101,7 @@ intern:
         .return($P0)
 .end
 
-.namespace [ "CHOCO";"KEYWORD-PACKAGE" ]
+.namespace [ "COMMON-LISP";"KEYWORD-PACKAGE" ]
 
 .sub 'intern' :method
         .param string name
@@ -102,7 +111,7 @@ intern:
         if $I0 goto intern
         .return(symbol)
 intern:
-        symbol = new ["CHOCO";"SYMBOL"]
+        symbol = new ["COMMON-LISP";"SYMBOL"]
         symbol = name
         setattribute symbol, 'package', self
         setattribute symbol, 'value', self
