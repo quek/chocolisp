@@ -1,9 +1,11 @@
+/back-quote.pir
 /ch-cl0.pir
 /ch-compiler.pir
 /chimacho.pir
 /compiler.pir
 /parrot-compiler.lisp
 /parrot-compiler.pir
+/read.pir
 /x.pir
 /y.pir
 /z.pir

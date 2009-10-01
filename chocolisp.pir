@@ -4,7 +4,7 @@
 .include "package.pir"
 .include "symbol.pir"
 .include "cons.pir"
-.include "chimacho/chimacho.pir"
+.include "chimacho.pir"
 
 .namespace []
 
@@ -124,10 +124,10 @@ NOTFOUND:
         load_bytecode "compiler/ch-compiler.pir"
         say "==== end compiler/ch-compiler.pir ===="
 
-        say "==== start chimacho/read.pir ===="
-        load_bytecode "chimacho/back-quote.pir"
-        load_bytecode "chimacho/read.pir"
-        say "==== end chimacho/read.pir ===="
+        say "==== start compiler/read.pir ===="
+        load_bytecode "compiler/back-quote.pir"
+        load_bytecode "compiler/read.pir"
+        say "==== end compiler/read.pir ===="
 
         say "==== start compiler/compiler.pir ===="
         load_bytecode "compiler/compiler.pir"
