@@ -116,6 +116,8 @@ NOTFOUND:
         $P1 = $P0($P1)
         say $P1
 
+                load_bytecode "cl0/cl0.pir"
+
         ##say "==== start compiler/a.pir ===="
         ##load_bytecode "compiler/a.pir"
         ##say "==== end compiler/a.pir ===="
@@ -134,8 +136,8 @@ NOTFOUND:
         say "==== end compiler/compiler.pir ===="
 
         $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
-        $P0("/home/ancient/letter/parrot/chocolisp/compiler/ch-cl0.lisp")
-        load_bytecode "compiler/ch-cl0.pir"
+        $P0("/home/ancient/letter/parrot/chocolisp/cl0/cl0.lisp")
+        load_bytecode "cl0/cl0.pir"
         $P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
         say "==== start compiler/a.pir in parrot ===="
         load_bytecode "compiler/a.pir"
