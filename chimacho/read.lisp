@@ -7,6 +7,9 @@
         (cond ((string= "'" c)
                ($read-char in)
                (list 'quote ($read in)))
+              ((string= "#" c)
+               ($read-char in)
+               (read-dispatch in))
               ((string= "`" c)
                ($read-char in)
                (read-back-quote in))
@@ -23,6 +26,13 @@
                ($read in))
               (t
                (read-atom in))))))
+
+(defun read-dispatch (in)
+  (let ((c ($read-char in)))
+    (cond ((string= c "'")
+           (list 'function ($read in)))
+          (t
+           ($error (string+ "#" c " is unknown read dispatch macro."))))))
 
 (defun skip-whitespace (in)
   (let ((c ($peek-char in)))

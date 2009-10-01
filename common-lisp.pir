@@ -247,10 +247,10 @@ SYMBOL:
         $P0 = package.'intern'("SYMBOL")
         .return($P0)
 STRING:
-        $P0 = package.'intern'("String")
+        $P0 = package.'intern'("STRING")
         .return($P0)
 INTEGER:
-        $P0 = package.'intern'("Integer")
+        $P0 = package.'intern'("INTEGER")
         .return($P0)
 .end
 
