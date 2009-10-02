@@ -241,6 +241,8 @@ true:
         if $I0 goto STRING
         $I0 = isa x, "Integer"
         if $I0 goto INTEGER
+        $I0 = isa x, ["COMMON-LISP";"CHARACTER"]
+        if $I0 goto CHARACTER
         .t
         .return(t)
 SYMBOL:
@@ -251,6 +253,9 @@ STRING:
         .return($P0)
 INTEGER:
         $P0 = package.'intern'("INTEGER")
+        .return($P0)
+CHARACTER:
+        $P0 = package.'intern'("CHARACTER")
         .return($P0)
 .end
 
@@ -401,6 +406,69 @@ end:
         .param pmc x
         $P0 = 'CAR'(x)
         .tailcall 'CDR'($P0)
+.end
+
+.sub 'CHAR'
+        .param string str
+        .param int idx
+        $I0 = idx + 1
+        $S0 = substr str, idx, $I0
+        $P0 = new ["COMMON-LISP";"CHARACTER"]
+        $P0 = $S0
+        .return($P0)
+.end
+
+.sub 'CHAR-CODE'
+        .param pmc c
+        $I0 = c
+        .return($I0)
+.end
+
+.sub 'CODE-CHAR'
+        .param pmc n
+        $I0 = n
+        $P0 = new ["COMMON-LISP";"CHARACTER"]
+        $P0 = $I0
+        .return($P0)
+.end
+
+.sub 'CHAR='
+        .param pmc x
+        .param pmc y
+        $I0 = x
+        $I1 = y
+        eq_num $I0, $I1, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'CHAR<'
+        .param pmc x
+        .param pmc y
+        $I0 = x
+        $I1 = y
+        lt_num $I0, $I1, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
+.end
+
+.sub 'CHAR<='
+        .param pmc x
+        .param pmc y
+        $I0 = x
+        $I1 = y
+        le_num $I0, $I1, true
+        .nil
+        .return(nil)
+true:
+        .t
+        .return(t)
 .end
 
 .sub 'PRINC'

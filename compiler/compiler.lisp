@@ -1016,7 +1016,7 @@
     ($map-string (lambda (c)
                    (if ($alpha-char-p c)
                        (setq out (string+ out c))
-                       (setq out (string+ out ($char-code c)))))
+                       (setq out (string+ out (char-code (char c 0))))))
                  (prin1-to-string lisp-var))
     out))
 
@@ -1075,12 +1075,17 @@
 
 (defun pir-atom (atom)
   (typecase atom
+    (symbol
+       (pir-symbol atom))
     (string
        (let ((var (next-var)))
          (prt var " = box utf8:unicode:" (prin1-to-string  atom))
          var))
-    (symbol
-       (pir-symbol atom))
+    (character
+       (let ((var (next-var)))
+         (prt var " = new [\"COMMON-LISP\";\"CHARACTER\"]")
+         (prt var " = " (prin1-to-string (char-code atom)))
+         var))
     (t
        (let ((var (next-var)))
          (prt var " = box " (prin1-to-string atom))

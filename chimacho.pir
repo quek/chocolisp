@@ -9,6 +9,15 @@
         .param pmc x
         .param pmc y
         eq x, y, true
+        '%IS_FAILED'()
+true:
+        .t
+        .return(t)
+.end
+
+.sub '%IS_FAILED'
+        .param pmc x
+        .param pmc y
         $S0 = "The assertion failed. ["
         $S1 = x
         $S0 .= $S1
@@ -17,9 +26,6 @@
         $S0 .= $S1
         $S0 .= "]."
         die $S0
-true:
-        .t
-        .return(t)
 .end
 
 .sub 'OPEN-INPUT-FILE'
@@ -48,7 +54,9 @@ true:
         .param pmc fh
         $S0 = read fh, 1
         eq_str $S0, "", eof
-        .return($S0)
+        $P0 = new ["COMMON-LISP";"CHARACTER"]
+        $P0 = $S0
+        .return($P0)
 eof:
         .nil
         .return(nil)
@@ -68,7 +76,9 @@ eof:
         .param pmc fh
         $S0 = peek fh
         eq_str $S0, "", eof
-        .return($S0)
+        $P0 = new ["COMMON-LISP";"CHARACTER"]
+        $P0 = $S0
+        .return($P0)
 eof:
         .nil
         .return(nil)
@@ -95,7 +105,14 @@ eof:
 loop:
         unless $P0 goto end
         $P1 = shift $P0
+        $I0 = isa $P1, ["COMMON-LISP";"CHARACTER"]
+        unless $I0 goto L1
+        $I0 = $P1
+        $S1 = chr $I0
+        goto L2
+L1:
         $S1 = $P1
+L2:
         $S0 .= $S1
         goto loop
 end:
@@ -105,20 +122,6 @@ end:
 .sub 'STRING-TO-NUMBER'
         .param string x
         $I0 = x
-        .return($I0)
-.end
-
-.sub '$CHAR'
-        .param string str
-        .param int idx
-        $I0 = idx + 1
-        $S0 = substr str, idx, $I0
-        .return($S0)
-.end
-
-.sub '$CHAR-CODE'
-        .param string str
-        $I0 = ord str
         .return($I0)
 .end
 
