@@ -85,9 +85,6 @@
 (defun $rplacd (cons x)
   (rplacd cons x))
 
-(defun $eval (form)
-  (eval form))
-
 (defun is (x y)
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))

@@ -84,16 +84,29 @@ eof:
         .return(nil)
 .end
 
-.sub '$WRITE-STRING'
+.sub '%$WRITE-STRING' :multi(_, ["COMMON-LISP";"STRING-OUTPUT-STREAM"])
+        .param pmc str
+        .param pmc stream
+        stream .= str
+        .return(str)
+.end
+
+.sub '%$WRITE-STRING' :multi(_, 'FileHandle')
         .param pmc str
         .param pmc fh
         print fh, str
         .return(str)
 .end
 
+.sub '$WRITE-STRING'
+        .param pmc str
+        .param pmc stream
+        .tailcall '%$WRITE-STRING'(str, stream)
+.end
+
 .sub '$TERPRI'
         .param pmc fh
-        print fh, "\n"
+        '$WRITE-STRING'("\n", fh)
         .nil
         .return(nil)
 .end
@@ -172,4 +185,35 @@ error:
         .param string attribute
         $P0 = getattribute object, attribute
         .return($P0)
+.end
+
+.sub '$MAKE-STRING-OUTPUT-STREAM'
+        $P0 = new ["COMMON-LISP";"STRING-OUTPUT-STREAM"]
+        $P0 = ""
+        .return($P0)
+.end
+
+.sub '$GET-OUTPUT-STREAM-STRING'
+        .param pmc x
+        $S0 = x
+        .return($S0)
+.end
+
+.sub 'PIR-COMPILE'
+        .param string src
+        .local pmc compiler
+        compiler = compreg "PIR"
+        $P0 = compiler(src)
+        .return($P0)
+.end
+
+.sub 'PIR-EVAL'
+        .param string pir
+        say "PIR-EVAL <= "
+        say pir
+        $P0 = 'PIR-COMPILE'(pir)
+        $P1 = $P0()
+        print "PIR-EVAL => "
+        say $P1
+        .return($P1)
 .end

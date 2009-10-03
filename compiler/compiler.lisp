@@ -3,8 +3,10 @@
 (in-package :chimacho)
 
 (defvar *pir-stream* *standard-output*)
-(defvar *var-counter*)
-(defvar *label-counter*)
+(defvar *var-counter* 0)
+(defvar *label-counter* 0)
+(defvar *in-eval* nil)
+(defvar *compile-toplevel* nil)
 
 ;; TODO atom special macor function の順番
 (defun objectify (form r f)
@@ -67,11 +69,11 @@
                              (make-lambda
                               (cdr name)
                               (cadr form)
-                              (objectify-progn (cddr form)
-                                               (extend-r r (cadr form)) f)))
+                              (objectify (cons 'progn (cddr form))
+                                         (extend-r r (cadr form)) f)))
                            fnames flet-form))
          (new-f (extend-f f fnames))
-         (body (objectify-progn body-form r new-f)))
+         (body (objectify (cons 'progn body-form) r new-f)))
     (make-flet lambdas body)))
 
 (defun %objectify-labels (acc labels-form body-form r f)
@@ -85,21 +87,22 @@
         (%objectify-labels (cons (make-lambda
                                   gensym-label
                                   lambda-list
-                                  (objectify-progn body
-                                                   (extend-r r lambda-list)
-                                                   new-f))
+                                  (objectify (cons 'progn  body)
+                                             (extend-r r lambda-list)
+                                             new-f))
                                  acc)
                            (cdr labels-form)
                            body-form
                            r
                            new-f))
-      (make-flet acc (objectify-progn body-form r f))))
+      (make-flet acc (objectify (cons 'progn body-form) r f))))
 
 (defun objectify-labels (labels-form body-form r f)
   (%objectify-labels nil labels-form body-form r f))
 
 (defun objectify-setq (symbol value-form r f)
-  (if (eq 'cl:*package* symbol)
+  (if (and *compile-toplevel*
+           (eq 'cl:*package* symbol))
       (make-change-package
        value-form (make-dynamic-assignment symbol (objectify value-form r f)))
       (case (var-kind symbol r)
@@ -117,7 +120,8 @@
   (make-defvar symbol (objectify value-form r f)))
 
 (defun objectify-eval-when (situations form r f)
-  (make-eval-when situations (objectify-progn form r f) (cons 'progn form)))
+  (let ((*compile-toplevel* ($member :compile-toplevel situations)))
+    (make-eval-when situations (objectify (cons 'progn form) r f) (cons 'progn form))))
 
 (defun objectify-quotation (value)
   (make-constant value))
@@ -150,7 +154,7 @@
                                              bindings))))
     (make-let vars
               values
-              (objectify-progn body (extend-r r vars) f))))
+              (objectify (cons 'progn body) (extend-r r vars) f))))
 
 (defun objectify-let* (bindings body r f)
   (if bindings
@@ -164,14 +168,14 @@
                                   body
                                   (extend-r r vars)
                                   f)))
-      (objectify-progn body r f)))
+      (objectify (cons 'progn body) r f)))
 
 (defun objectify-lambda (lambda-list body r f)
   (make-lambda ($gensym "lambda")
                lambda-list
-               (objectify-progn body
-                                (extend-r r (collect-vars lambda-list))
-                                f)))
+               (objectify (cons 'progn body)
+                          (extend-r r (collect-vars lambda-list))
+                          f)))
 
 (defun objectify-function (name r f)
   (if (symbolp name)
@@ -188,13 +192,13 @@
 (defun objectify-defun (name lambda-list body r f)
   (make-defun name
               lambda-list
-              (objectify-progn body (extend-r r lambda-list) f)))
+              (objectify (cons 'progn body) (extend-r r lambda-list) f)))
 
 (defun objectify-defmacro (name lambda-list body r f)
   (set-info name :macro-function t)
   (make-defmacro name
                  lambda-list
-                 (objectify-progn body (extend-r r lambda-list) f)))
+                 (objectify (cons 'progn body) (extend-r r lambda-list) f)))
 
 (defun objectify-progn (body r f)
   (if (null body)
@@ -202,7 +206,7 @@
       (if (null (cdr body))
           (objectify (car body) r f)
           (make-progn (objectify (car body) r f)
-                      (objectify-progn (cdr body) r f)))))
+                      (objectify (cons 'progn (cdr body)) r f)))))
 
 (defun objectify-application (fun args r f)
   (if (symbolp fun)
@@ -677,13 +681,11 @@
                        (outers (car args)))
                    (funcall (car outers) :add :inner-functions
                             self)
-                   setq-form))
+                   (apply setq-form message args)))
               (:pir
                  (let ((name (funcall self :get :name)))
-                   (prt-top ".namespace [ "
-                            (prin1-to-string ($symbol-name (cadr name)))
-                            " ]")
-                   (new-line)))
+                   ;;(prt-in-namespace ($symbol-name (cadr name)))
+                   (prt-in-namespace ($package-name (eval name)))))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -700,8 +702,9 @@
                         (form (funcall self :get :form))
                         (raw-form (funcall self :get :raw-form))
                         (modifiers nil))
-                   (if ($member :compile-toplevel situations)
-                       ($eval raw-form))
+                   (if (and (not *in-eval*)
+                            ($member :compile-toplevel situations))
+                       (eval raw-form))
                    (if ($member :load-toplevel situations)
                        (setq modifiers (cons ":load" modifiers)))
                    (if ($member :execute situations)
@@ -1040,6 +1043,10 @@
   ($write-string ":" *pir-stream*)
   (new-line))
 
+(defun prt-in-namespace (package)
+  (prt-top ".namespace [ " (prin1-to-string package) " ]")
+  (new-line))
+
 (defun new-line ()
   ($terpri *pir-stream*))
 
@@ -1273,7 +1280,9 @@
       (read-loop in))))
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
-  (let ((in (open-input-file lisp-file))
+  (let ((*in-eval* nil)
+        (*compile-toplevel* nil)
+        (in (open-input-file lisp-file))
         (*pir-stream* (open-output-file pir-file)))
     (let ((*pir-stream* (make-broadcast-stream *pir-stream*
                                                *standard-output*)))
