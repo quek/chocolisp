@@ -18,6 +18,17 @@ false:
         .return(nil)
 .end
 
+.sub 'CONSP'
+        .param pmc x
+        $I0 = isa x, ["COMMON-LISP";"CONS"]
+        unless $I0 goto false
+        .t
+        .return(t)
+false:
+        .nil
+        .return(nil)
+.end
+
 .sub 'CONS'
         .param pmc car
         .param pmc cdr

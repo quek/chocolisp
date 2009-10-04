@@ -1,5 +1,33 @@
 (in-package :chimacho)
 
+(defun tagbody-test1 (flag)
+  (let ((n 1))
+    (tagbody
+       (setq n (tagbody-test2 flag #'(lambda () (go out))))
+     out)
+    n))
+(defun tagbody-test2 (flag escape)
+  (if flag (funcall escape) 2))
+(is 2 (tagbody-test1 nil))
+(is 1 (tagbody-test1 t))
+
+(is 15 (let (val)
+         (tagbody
+            (setq val 1)
+            (go point-a)
+            (setq val (+ val 16))
+          point-c
+            (setq val (+ val 04))
+            (go point-b)
+            (setq val (+ val 32))
+          point-a
+            (setq val (+ val 02))
+            (go point-c)
+            (setq val (+ val 64))
+          point-b
+            (setq val (+ val 08)))
+         val))
+
 (is nil (block empty))
 (is 2 (block whocares 1 2))
 (is 2 (let ((x 1))

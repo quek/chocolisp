@@ -8,6 +8,7 @@
 (defvar *in-eval* nil)
 (defvar *compile-toplevel* nil)
 (defvar *block* nil)
+(defvar *tags* nil)
 
 ;; TODO atom special macor function の順番
 (defun objectify (form r f)
@@ -23,6 +24,12 @@
             (objectify-block (cadr form) (cddr form) r f))
         (return-from
          (objectify-return-from (cadr form) (cddr form) r f))
+        (tagbody
+           (if (null (cdr form))
+               (objectify-quotation nil)
+               (objectify-tagbody (cdr form) r f)))
+        (go
+           (objectify-go (cadr form) r))
         (if
             (objectify-if (cadr form) (caddr form) (cadddr form) r f))
         (let
@@ -78,272 +85,367 @@
                           (objectify (cons 'progn result) r f))
         ($error (string+ name " in unknown block.")))))
 
-(defun objectify-flet (flet-form body-form r f)
-  (let* ((fnames ($mapcar (lambda (form)
-                           (let ((name (car form)))
-                             (cons name ($gensym ($symbol-name name)))))
-                         flet-form))
-         (lambdas ($mapcar (lambda (name form)
-                             (make-lambda
-                              (cdr name)
-                              (cadr form)
-                              (objectify (cons 'progn (cddr form))
-                                         (extend-r r (cadr form)) f)))
-                           fnames flet-form))
-         (new-f (extend-f f fnames))
-         (body (objectify (cons 'progn body-form) r new-f)))
-    (make-flet lambdas body)))
+(defun collect-tags (body tags)
+  (if body
+      (if (atom (car body))
+          (collect-tags (cdr body) (cons (car body) tags))
+          (collect-tags (cdr body) tags))
+      tags))
 
-(defun %objectify-labels (acc labels-form body-form r f)
-  (if labels-form
-      (let* ((def (car labels-form))
-             (label (car def))
-             (gensym-label ($gensym ($symbol-name label)))
-             (lambda-list (cadr def))
-             (body (cddr def))
-             (new-f (extend-f f ($list (cons label gensym-label)))))
-        (%objectify-labels (cons (make-lambda
-                                  gensym-label
-                                  lambda-list
-                                  (objectify (cons 'progn  body)
-                                             (extend-r r lambda-list)
-                                             new-f))
-                                 acc)
-                           (cdr labels-form)
-                           body-form
-                           r
-                           new-f))
-      (make-flet acc (objectify (cons 'progn body-form) r f))))
+(defun objectify-tagbody (body r f)
+  (let* ((*tags* (collect-tags body *tags*))
+         (seq ($mapcar (lambda (x)
+                         (if (atom x)
+                             (make-tag x)
+                             (objectify x (cons (cons (cons :tag *tags*)
+                                                      (car r))
+                                                (cdr r))
+                                        f)))
+                       body)))
+    (make-tagbody *tags* seq)))
 
-(defun objectify-labels (labels-form body-form r f)
-  (%objectify-labels nil labels-form body-form r f))
+(defun local-go-p (tag env)
+  (if env
+      (if (and (consp (car env))
+               (eq :tag (caar env)))
+          ($member tag (cdar env))
+          (local-go-p tag (cdr env)))))
 
-(defun objectify-setq (symbol value-form r f)
-  (if (and *compile-toplevel*
-           (eq 'cl:*package* symbol))
-      (make-change-package
-       value-form (make-dynamic-assignment symbol (objectify value-form r f)))
-      (case (var-kind symbol r)
-        (:local
-           (make-local-assignment symbol (objectify value-form r f)))
-        (:lexical
-           (make-lexical-assignment symbol (objectify value-form r f)))
-        (:dynamic
-           (make-dynamic-assignment symbol (objectify value-form r f)))
-        (t
-           ($error (string+ symbol " is unknown variable."))))))
+ (defun objectify-go (tag r)
+   (if (local-go-p tag (car r))
+       (make-local-go tag)
+       (make-lexical-go tag)))
 
-(defun objectify-defvar (symbol value-form r f)
-  (set-info symbol :kind :special)
-  (make-defvar symbol (objectify value-form r f)))
+ (defun objectify-flet (flet-form body-form r f)
+   (let* ((fnames ($mapcar (lambda (form)
+                            (let ((name (car form)))
+                              (cons name ($gensym ($symbol-name name)))))
+                          flet-form))
+          (lambdas ($mapcar (lambda (name form)
+                              (make-lambda
+                               (cdr name)
+                               (cadr form)
+                               (objectify (cons 'progn (cddr form))
+                                          (extend-r r (cadr form)) f)))
+                            fnames flet-form))
+          (new-f (extend-f f fnames))
+          (body (objectify (cons 'progn body-form) r new-f)))
+     (make-flet lambdas body)))
 
-(defun objectify-eval-when (situations form r f)
-  (let ((*compile-toplevel* ($member :compile-toplevel situations)))
-    (make-eval-when situations (objectify (cons 'progn form) r f) (cons 'progn form))))
+ (defun %objectify-labels (acc labels-form body-form r f)
+   (if labels-form
+       (let* ((def (car labels-form))
+              (label (car def))
+              (gensym-label ($gensym ($symbol-name label)))
+              (lambda-list (cadr def))
+              (body (cddr def))
+              (new-f (extend-f f ($list (cons label gensym-label)))))
+         (%objectify-labels (cons (make-lambda
+                                   gensym-label
+                                   lambda-list
+                                   (objectify (cons 'progn  body)
+                                              (extend-r r lambda-list)
+                                              new-f))
+                                  acc)
+                            (cdr labels-form)
+                            body-form
+                            r
+                            new-f))
+       (make-flet acc (objectify (cons 'progn body-form) r f))))
 
-(defun objectify-quotation (value)
-  (make-constant value))
+ (defun objectify-labels (labels-form body-form r f)
+   (%objectify-labels nil labels-form body-form r f))
 
-(defun objectify-reference (var r)
-  (if (keywordp var)
-      (make-constant var)
-      (case (var-kind var r)
-        (:local
-           (make-local-reference var))
-        (:lexical
-           (make-lexical-reference var))
-        (:dynamic
-           (make-dynamic-reference var)))))
+ (defun objectify-setq (symbol value-form r f)
+   (if (and *compile-toplevel*
+            (eq 'cl:*package* symbol))
+       (make-change-package
+        value-form (make-dynamic-assignment symbol (objectify value-form r f)))
+       (case (var-kind symbol r)
+         (:local
+            (make-local-assignment symbol (objectify value-form r f)))
+         (:lexical
+            (make-lexical-assignment symbol (objectify value-form r f)))
+         (:dynamic
+            (make-dynamic-assignment symbol (objectify value-form r f)))
+         (t
+            ($error (string+ symbol " is unknown variable."))))))
 
-(defun objectify-if (test then else r f)
-  (make-if (objectify test r f)
-           (objectify then r f)
-           (objectify else r f)))
+ (defun objectify-defvar (symbol value-form r f)
+   (set-info symbol :kind :special)
+   (make-defvar symbol (objectify value-form r f)))
 
-(defun objectify-let (bindings body r f)
-  (let* ((bindings ($mapcar (lambda (x)
-                             (if (atom x)
-                                 (cons x nil)
-                                 x))
-                           bindings))
-         (vars ($mapcar #'car bindings))
-         (values  (list-to-arguments ($mapcar (lambda (x)
-                                               (objectify (cadr x) r f))
-                                             bindings))))
-    (make-let vars
-              values
-              (objectify (cons 'progn body) (extend-r r vars) f))))
+ (defun objectify-eval-when (situations form r f)
+   (let ((*compile-toplevel* ($member :compile-toplevel situations)))
+     (make-eval-when situations (objectify (cons 'progn form) r f) (cons 'progn form))))
 
-(defun objectify-let* (bindings body r f)
-  (if bindings
-      (let* ((bind (let ((x (car bindings)))
-                     (if (atom x) (cons x nil) x)))
-             (vars (cons (car bind) nil))
-             (value (cadr bind)))
-        (make-let vars
-                  (list-to-arguments (cons (objectify value r f) nil))
-                  (objectify-let* (cdr bindings)
-                                  body
-                                  (extend-r r vars)
-                                  f)))
-      (objectify (cons 'progn body) r f)))
+ (defun objectify-quotation (value)
+   (make-constant value))
 
-(defun objectify-lambda (lambda-list body r f)
-  (make-lambda ($gensym "lambda")
+ (defun objectify-reference (var r)
+   (if (keywordp var)
+       (make-constant var)
+       (case (var-kind var r)
+         (:local
+            (make-local-reference var))
+         (:lexical
+            (make-lexical-reference var))
+         (:dynamic
+            (make-dynamic-reference var)))))
+
+ (defun objectify-if (test then else r f)
+   (make-if (objectify test r f)
+            (objectify then r f)
+            (objectify else r f)))
+
+ (defun objectify-let (bindings body r f)
+   (let* ((bindings ($mapcar (lambda (x)
+                              (if (atom x)
+                                  (cons x nil)
+                                  x))
+                            bindings))
+          (vars ($mapcar #'car bindings))
+          (values  (list-to-arguments ($mapcar (lambda (x)
+                                                (objectify (cadr x) r f))
+                                              bindings))))
+     (make-let vars
+               values
+               (objectify (cons 'progn body) (extend-r r vars) f))))
+
+ (defun objectify-let* (bindings body r f)
+   (if bindings
+       (let* ((bind (let ((x (car bindings)))
+                      (if (atom x) (cons x nil) x)))
+              (vars (cons (car bind) nil))
+              (value (cadr bind)))
+         (make-let vars
+                   (list-to-arguments (cons (objectify value r f) nil))
+                   (objectify-let* (cdr bindings)
+                                   body
+                                   (extend-r r vars)
+                                   f)))
+       (objectify (cons 'progn body) r f)))
+
+ (defun objectify-lambda (lambda-list body r f)
+   (make-lambda ($gensym "lambda")
+                lambda-list
+                (objectify (cons 'progn body)
+                           (extend-r r (collect-vars lambda-list))
+                           f)))
+
+ (defun objectify-function (name r f)
+   (if (symbolp name)
+       (if (eq *package* ($symbol-package name))
+           (make-extracted-lambda name)
+           (make-global-function-reference name))
+       (if (and ($consp name)
+                (eq 'lambda (car name)))
+           (let ((lambda-list (cadr name))
+                 (body (cddr name)))
+             (objectify-lambda lambda-list body r f))
+           ($error (string+ "Invalid function name " name)))))
+
+ (defun objectify-defun (name lambda-list body r f)
+   (make-defun name
                lambda-list
-               (objectify (cons 'progn body)
-                          (extend-r r (collect-vars lambda-list))
-                          f)))
+               (objectify (cons 'progn body) (extend-r r lambda-list) f)))
 
-(defun objectify-function (name r f)
-  (if (symbolp name)
-      (if (eq *package* ($symbol-package name))
-          (make-extracted-lambda name)
-          (make-global-function-reference name))
-      (if (and ($consp name)
-               (eq 'lambda (car name)))
-          (let ((lambda-list (cadr name))
-                (body (cddr name)))
-            (objectify-lambda lambda-list body r f))
-          ($error (string+ "Invalid function name " name)))))
+ (defun objectify-defmacro (name lambda-list body r f)
+   (set-info name :macro-function t)
+   (make-defmacro name
+                  lambda-list
+                  (objectify (cons 'progn body) (extend-r r lambda-list) f)))
 
-(defun objectify-defun (name lambda-list body r f)
-  (make-defun name
-              lambda-list
-              (objectify (cons 'progn body) (extend-r r lambda-list) f)))
+ (defun objectify-progn (body r f)
+   (if (null body)
+       (make-constant nil)
+       (if (null (cdr body))
+           (objectify (car body) r f)
+           (make-progn (objectify (car body) r f)
+                       (objectify (cons 'progn (cdr body)) r f)))))
 
-(defun objectify-defmacro (name lambda-list body r f)
-  (set-info name :macro-function t)
-  (make-defmacro name
-                 lambda-list
-                 (objectify (cons 'progn body) (extend-r r lambda-list) f)))
+ (defun objectify-application (fun args r f)
+   (if (symbolp fun)
+       (if ($assoc fun f)
+           (objectify-application-local-function fun args r f)
+           (objectify-application-symbol fun args r f))
+       (if (and ($consp fun)
+                (eq (car fun) 'lambda))
+           (objectify-application-lambda fun args r f)
+           ($error (string+ fun " is not applicable.")))))
 
-(defun objectify-progn (body r f)
-  (if (null body)
-      (make-constant nil)
-      (if (null (cdr body))
-          (objectify (car body) r f)
-          (make-progn (objectify (car body) r f)
-                      (objectify (cons 'progn (cdr body)) r f)))))
+ (defun objectify-application-local-function (fun args r f)
+   (make-regular-application
+    (make-local-function (cdr ($assoc fun f)))
+    (list-to-arguments ($mapcar (lambda (x)
+                                 (objectify x r f))
+                               args))))
 
-(defun objectify-application (fun args r f)
-  (if (symbolp fun)
-      (if ($assoc fun f)
-          (objectify-application-local-function fun args r f)
-          (objectify-application-symbol fun args r f))
-      (if (and ($consp fun)
-               (eq (car fun) 'lambda))
-          (objectify-application-lambda fun args r f)
-          ($error (string+ fun " is not applicable.")))))
+ (defun objectify-application-symbol (fun args r f)
+   (let ((fun (if (eq *package* ($symbol-package fun))
+                  (make-local-function fun)
+                  (make-global-function fun)))
+         (objected-args (list-to-arguments
+                         ($mapcar (lambda (x)
+                                   (objectify x r f))
+                                 args))))
+     (make-regular-application fun objected-args)))
 
-(defun objectify-application-local-function (fun args r f)
-  (make-regular-application
-   (make-local-function (cdr ($assoc fun f)))
-   (list-to-arguments ($mapcar (lambda (x)
-                                (objectify x r f))
-                              args))))
+ (defun objectify-application-lambda (lambda-form args r f)
+   (let ((lambda-form (objectify-lambda (cadr lambda-form)
+                                        (cddr lambda-form)
+                                        r f))
+         (objected-args (list-to-arguments
+                         ($mapcar (lambda (x) (objectify x r f))
+                                 args))))
+     (make-lambda-application lambda-form objected-args)))
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ (defun make-object (&rest vars)
+   (let (self
+         (vars (make-vars vars)))
+     (setq self
+           (lambda (message &rest args)
+             (case message
+               (:toplevelp
+                  nil)
+               (:all-vars
+                  vars)
+               (:get
+                  (cdr ($assoc (car args) vars)))
+               (:set
+                  (let ((cons ($assoc (car args) vars)))
+                    (if cons
+                        ($rplacd cons (cadr args)))))
+               (:add
+                  (let ((cons ($assoc (car args) vars)))
+                    (if cons
+                        ($rplacd cons (cons (cadr args) (cdr cons))))))
+               (t
+                  ($error (string+ message " in unknown message."))))))))
 
-(defun objectify-application-symbol (fun args r f)
-  (let ((fun (if (eq *package* ($symbol-package fun))
-                 (make-local-function fun)
-                 (make-global-function fun)))
-        (objected-args (list-to-arguments
-                        ($mapcar (lambda (x)
-                                  (objectify x r f))
-                                args))))
-    (make-regular-application fun objected-args)))
+ (defun make-program (&rest vars)
+   (let ((super (apply #'make-object vars))
+         self)
+     (setq self (lambda (message &rest args)
+                  (case message
+                    (:東京ミュウミュウ-metamorphose!
+                       (apply #'walk self (funcall self :all-vars) message args)
+                       self)
+                    (t
+                       (let ((ret (apply super message args)))
+                         (if (eq ret super) self ret))))))))
 
-(defun objectify-application-lambda (lambda-form args r f)
-  (let ((lambda-form (objectify-lambda (cadr lambda-form)
-                                       (cddr lambda-form)
-                                       r f))
-        (objected-args (list-to-arguments
-                        ($mapcar (lambda (x) (objectify x r f))
-                                args))))
-    (make-lambda-application lambda-form objected-args)))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun make-object (&rest vars)
-  (let (self
-        (vars (make-vars vars)))
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp
-                 nil)
-              (:all-vars
-                 vars)
-              (:get
-                 (cdr ($assoc (car args) vars)))
-              (:set
-                 (let ((cons ($assoc (car args) vars)))
-                   (if cons
-                       ($rplacd cons (cadr args)))))
-              (:add
-                 (let ((cons ($assoc (car args) vars)))
-                   (if cons
-                       ($rplacd cons (cons (cadr args) (cdr cons))))))
-              (t
-                 ($error (string+ message " in unknown message."))))))))
+ (defun make-block (name type form)
+   (let ((super (make-program :name name :type type :form form))
+         self)
+     (setq self (lambda (message &rest args)
+                  (case message
+                    (:pir
+                       (let ((form (funcall self :get :form))
+                             (handler (next-var))
+                             (handler-label (next-label "BLOCK"))
+                             (skip-label (next-label "BLOCK")))
+                         (prt handler " = new 'ExceptionHandler'")
+                         (prt "set_addr " handler ", " handler-label)
+                         (prt handler ".'handle_types'(" (princ-to-string type) ")")
+                         (prt "push_eh " handler)
+                         (let ((ret (funcall form :pir))
+                               (ex (next-var))
+                               (can-handle-label (next-label "BLOCK")))
+                           (prt "pop_eh")
+                           (prt "goto " skip-label)
+                           (prt-label handler-label)
+                           (prt ".get_results(" ex ")")
+                           (prt "pop_eh")
+                           (prt "$I0 = " handler ".'can_handle'(" ex ")")
+                           (prt "if $I0 goto " can-handle-label)
+                           (prt "rethrow " ex)
+                           (prt-label can-handle-label)
+                           (prt ret " = " ex "['payload']")
+                           (prt-label skip-label)
+                           ret)))
+                    (t (let ((ret (apply super message args)))
+                         (if (eq ret super) self ret))))))))
 
-(defun make-program (&rest vars)
-  (let ((super (apply #'make-object vars))
+ (defun make-return-from (name type result)
+   (let ((super (make-program :name name :type type :result result))
+         self)
+     (setq self (lambda (message &rest args)
+                  (case message
+                    (:pir
+                       (let ((type (funcall self :get :type))
+                             (result (funcall self :get :result))
+                             (ex-var (next-var))
+                             (dummy-ret-var (next-var)))
+                         (prt ex-var " = new 'Exception'")
+                         (prt ex-var "['type'] = " (princ-to-string type))
+                         (prt ex-var "['payload'] = " (funcall result :pir))
+                         (prt "throw " ex-var)
+                         dummy-ret-var))
+                    (t (let ((ret (apply super message args)))
+                         (if (eq ret super) self ret))))))))
+
+(defun make-tagbody (tags body)
+  (let ((super (make-program :tags tags :body body))
         self)
     (setq self (lambda (message &rest args)
                  (case message
                    (:東京ミュウミュウ-metamorphose!
-                      (apply #'walk self (funcall self :all-vars) message args)
+                      (funcall self :set :body
+                               ($mapcar (lambda (x)
+                                          (apply x :東京ミュウミュウ-metamorphose! args))
+                                        (funcall self :get :body)))
                       self)
-                   (t
-                      (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
-
-(defun make-block (name type form)
-  (let ((super (make-program :name name :type type :form form))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
                    (:pir
-                      (let ((form (funcall self :get :form))
-                            (handler (next-var))
-                            (handler-label (next-label "BLOCK"))
-                            (skip-label (next-label "BLOCK")))
-                        (prt handler " = new 'ExceptionHandler'")
-                        (prt "set_addr " handler ", " handler-label)
-                        (prt handler ".'handle_types'(" (princ-to-string type) ")")
-                        (prt "push_eh " handler)
-                        (let ((ret (funcall form :pir))
-                              (ex (next-var))
-                              (can-handle-label (next-label "BLOCK")))
-                          (prt "pop_eh")
-                          (prt "goto " skip-label)
-                          (prt-label handler-label)
-                          (prt ".get_results(" ex ")")
-                          (prt "pop_eh")
-                          (prt "$I0 = " handler ".'can_handle'(" ex ")")
-                          (prt "if $I0 goto " can-handle-label)
-                          (prt "rethrow " ex)
-                          (prt-label can-handle-label)
-                          (prt ret " = " ex "['payload']")
-                          (prt-label skip-label)
-                          ret)))
+                      (let ((tags (funcall self :get :tags))
+                            (body (funcall self :get :body)))
+                        ($mapcar (lambda (x)
+                                   (let ((cont-var (parrot-cont x)))
+                                     (prt ".local pmc " cont-var)
+                                     (prt cont-var " = new 'Continuation'")
+                                     (prt "set_addr " cont-var ", " (parrot-tag x))
+                                     (prt ".lex '" cont-var "', " cont-var)))
+                                 tags)
+                        ($mapcar (lambda (x)
+                                   (apply x :pir args))
+                                 body)
+                        (funcall (make-constant nil) :pir)))
                    (t (let ((ret (apply super message args)))
                         (if (eq ret super) self ret))))))))
 
-(defun make-return-from (name type result)
-  (let ((super (make-program :name name :type type :result result))
+(defun make-tag (tag)
+  (let ((super (make-program :tag tag))
         self)
     (setq self (lambda (message &rest args)
                  (case message
                    (:pir
-                      (let ((type (funcall self :get :type))
-                            (result (funcall self :get :result))
-                            (ex-var (next-var))
-                            (dummy-ret-var (next-var)))
-                        (prt ex-var " = new 'Exception'")
-                        (prt ex-var "['type'] = " (princ-to-string type))
-                        (prt ex-var "['payload'] = " (funcall result :pir))
-                        (prt "throw " ex-var)
-                        dummy-ret-var))
+                      (prt-label (parrot-tag (funcall self :get :tag))))
+                   (t (let ((ret (apply super message args)))
+                        (if (eq ret super) self ret))))))))
+
+(defun make-local-go (tag)
+  (let ((super (make-program :tag tag))
+        self)
+    (setq self (lambda (message &rest args)
+                 (case message
+                   (:pir
+                      (let ((tag (parrot-tag (funcall self :get :tag))))
+                        (prt "goto " tag)
+                        (next-var)))
+                   (t (let ((ret (apply super message args)))
+                        (if (eq ret super) self ret))))))))
+
+(defun make-lexical-go (tag)
+  (let ((super (make-program :tag tag))
+        self)
+    (setq self (lambda (message &rest args)
+                 (case message
+                   (:pir
+                      (let ((var (parrot-cont (funcall self :get :tag))))
+                        (prt ".local pmc " var)
+                        (prt var " = find_lex '" var "'")
+                        (prt var "(0)")
+                        var))
                    (t (let ((ret (apply super message args)))
                         (if (eq ret super) self ret))))))))
 
@@ -521,10 +623,10 @@
           (lambda (message &rest args)
             (case message
               (:pir
-                 (let ((first (funcall self :get :first self))
-                       (rest (funcall self :get :rest self)))
+                 (let ((first (funcall self :get :first))
+                       (rest (funcall self :get :rest)))
                    (funcall first :pir)
-                   (funcall rest :Pir)))
+                   (funcall rest :pir)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -965,14 +1067,16 @@
                                 modifiers)
                        (prt-top ".sub " (parrot-sub-name name) modifiers))
                    (pir-lambda-list lambda-list)
-                   ($mapcar (lambda (var)
-                              (if (special-var-p var)
-                                  (prt-push-dynamic var)))
-                            arguments)
-                   ($mapcar (lambda (var)
-                              (let ((var (parrot-var var)))
-                                (prt ".lex '" var "', " var)))
-                            lexical-store)
+                   (let ((dot-lex-vars ($mapcar (lambda (var)
+                                                  (when (special-var-p var)
+                                                    (prt-push-dynamic var)
+                                                    var))
+                                                arguments)))
+                     ($mapcar (lambda (var)
+                                (unless ($member var dot-lex-vars)
+                                  (let ((var (parrot-var var)))
+                                    (prt ".lex '" var "', " var))))
+                              lexical-store))
                    (let ((ret (funcall body :pir)))
                      (prt ".return(" ret ")"))
                    (prt-top ".end")
@@ -1079,10 +1183,20 @@
 
 (defun next-label (name)
   (setq *label-counter* (+ *label-counter* 1))
-  (string+ name *label-counter*))
+  (string+ "L_" name *label-counter*))
+
+(defun parrot-tag (tag)
+  (parrot-name tag "T_"))
+
+(defun parrot-cont (x)
+  (parrot-name x "c_"))
 
 (defun parrot-var (lisp-var)
-  (let ((out "p_"))
+  (parrot-name lisp-var "v_"))
+
+
+(defun parrot-name (lisp-var prefix)
+  (let ((out prefix))
     ($map-string (lambda (c)
                    (if ($alpha-char-p c)
                        (setq out (string+ out c))
