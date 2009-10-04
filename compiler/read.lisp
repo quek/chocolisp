@@ -67,7 +67,7 @@
         (if (or (char< c #\0)
                 (char< #\9 c))
             (read-symbol in "" "" nil t)
-            (read-number in ($read-char in))))))
+            (read-number in (string+ ($read-char in)))))))
 
 (defun read-string (in acc)
   (let ((c ($read-char in)))

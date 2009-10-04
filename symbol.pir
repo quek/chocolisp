@@ -29,6 +29,14 @@
         setattribute self, 'name', str
 .end
 
+.sub is_equal :method :multi(["COMMON-LISP";"SYMBOL"])
+        .param pmc other
+        eq_addr self, other, true
+        .return(0)
+true:
+        .return(1)
+.end
+
 .sub specialize :method
         .t
         setattribute self, 'special-var-p', t

@@ -91,8 +91,7 @@
 
 (defun compile-all ()
   (mapcar #'parrot-compile-file
-          '("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp"
-            "/home/ancient/letter/parrot/chocolisp/compiler/ch-compiler.lisp"
+          '("/home/ancient/letter/parrot/chocolisp/compiler/ch-compiler.lisp"
             "/home/ancient/letter/parrot/chocolisp/compiler/back-quote.lisp"
             "/home/ancient/letter/parrot/chocolisp/compiler/read.lisp"
             "/home/ancient/letter/parrot/chocolisp/compiler/compiler.lisp")))

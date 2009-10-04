@@ -1,5 +1,18 @@
 (in-package :chimacho)
 
+(is nil (block empty))
+(is 2 (block whocares 1 2))
+(is 2 (let ((x 1))
+        (block stop (setq x 2) (return-from stop) (setq x 3))
+        x))
+(is 2 (block early (return-from early 2)))
+(is 1 (block outer (block inner (return-from outer 1)) 2))
+(is 2 (block twin (block twin (return-from twin 1)) 2))
+(is 1 (block b
+        (flet ((b1 () (return-from b 1)))
+          (block b (b1) (print 'unreachable))
+          2)))
+
 (is #\a #\a)
 
 (is 1 (when t 1))

@@ -7,6 +7,7 @@
 (defvar *label-counter* 0)
 (defvar *in-eval* nil)
 (defvar *compile-toplevel* nil)
+(defvar *block* nil)
 
 ;; TODO atom special macor function の順番
 (defun objectify (form r f)
@@ -18,6 +19,10 @@
       (case (car form)
         (quote
            (objectify-quotation (cadr form)))
+        (block
+            (objectify-block (cadr form) (cddr form) r f))
+        (return-from
+         (objectify-return-from (cadr form) (cddr form) r f))
         (if
             (objectify-if (cadr form) (caddr form) (cadddr form) r f))
         (let
@@ -60,6 +65,19 @@
                (objectify-application (car form) (cdr form) r f))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun objectify-block (name form r f)
+  (let* ((*block* (cons name *block*)))
+    (make-block name
+                (length *block*)
+                (objectify (cons 'progn form) r f))))
+
+(defun objectify-return-from (name result r f)
+  (let ((block ($member name *block*)))
+    (if block
+        (make-return-from name (length block)
+                          (objectify (cons 'progn result) r f))
+        ($error (string+ name " in unknown block.")))))
+
 (defun objectify-flet (flet-form body-form r f)
   (let* ((fnames ($mapcar (lambda (form)
                            (let ((name (car form)))
@@ -244,7 +262,6 @@
                                 args))))
     (make-lambda-application lambda-form objected-args)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defun make-object (&rest vars)
   (let (self
         (vars (make-vars vars)))
@@ -278,6 +295,56 @@
                       self)
                    (t
                       (let ((ret (apply super message args)))
+                        (if (eq ret super) self ret))))))))
+
+(defun make-block (name type form)
+  (let ((super (make-program :name name :type type :form form))
+        self)
+    (setq self (lambda (message &rest args)
+                 (case message
+                   (:pir
+                      (let ((form (funcall self :get :form))
+                            (handler (next-var))
+                            (handler-label (next-label "BLOCK"))
+                            (skip-label (next-label "BLOCK")))
+                        (prt handler " = new 'ExceptionHandler'")
+                        (prt "set_addr " handler ", " handler-label)
+                        (prt handler ".'handle_types'(" (princ-to-string type) ")")
+                        (prt "push_eh " handler)
+                        (let ((ret (funcall form :pir))
+                              (ex (next-var))
+                              (can-handle-label (next-label "BLOCK")))
+                          (prt "pop_eh")
+                          (prt "goto " skip-label)
+                          (prt-label handler-label)
+                          (prt ".get_results(" ex ")")
+                          (prt "pop_eh")
+                          (prt "$I0 = " handler ".'can_handle'(" ex ")")
+                          (prt "if $I0 goto " can-handle-label)
+                          (prt "rethrow " ex)
+                          (prt-label can-handle-label)
+                          (prt ret " = " ex "['payload']")
+                          (prt-label skip-label)
+                          ret)))
+                   (t (let ((ret (apply super message args)))
+                        (if (eq ret super) self ret))))))))
+
+(defun make-return-from (name type result)
+  (let ((super (make-program :name name :type type :result result))
+        self)
+    (setq self (lambda (message &rest args)
+                 (case message
+                   (:pir
+                      (let ((type (funcall self :get :type))
+                            (result (funcall self :get :result))
+                            (ex-var (next-var))
+                            (dummy-ret-var (next-var)))
+                        (prt ex-var " = new 'Exception'")
+                        (prt ex-var "['type'] = " (princ-to-string type))
+                        (prt ex-var "['payload'] = " (funcall result :pir))
+                        (prt "throw " ex-var)
+                        dummy-ret-var))
+                   (t (let ((ret (apply super message args)))
                         (if (eq ret super) self ret))))))))
 
 (defun make-reference (var)
@@ -1222,7 +1289,7 @@
 (defun $member (item list)
   (if list
       (if (eq item (car list))
-          t
+          list
           ($member item (cdr list)))))
 
 (defun $assoc (item alist)
