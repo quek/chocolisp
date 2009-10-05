@@ -2,3 +2,4 @@
 *~
 *.pbc
 compiler/a.pir
+cl0/*.pir

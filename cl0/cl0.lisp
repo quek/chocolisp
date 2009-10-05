@@ -39,3 +39,11 @@
                                                    (car x)))
                                     ,@(cdr x)))))
                 cases)))))
+
+(defmacro loop (&rest form)
+  (let ((tag ($gensym "LOOP")))
+    `(block nil
+      (tagbody
+         ,tag
+         (progn ,@form)
+         (go ,tag)))))

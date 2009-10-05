@@ -303,9 +303,12 @@ true:
 
 .sub 'KEYWORDP'
         .param pmc x
+        $I0 = isa x, ["COMMON-LISP";"SYMBOL"]
+        unless $I0 goto false
         $P0 = getattribute x, 'package'
         $P1 = find_package("KEYWORD")
         eq_addr $P0, $P1, true
+false:
         .nil
         .return(nil)
 true:
