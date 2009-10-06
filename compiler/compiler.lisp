@@ -249,7 +249,7 @@
 (defun objectify-defun (name lambda-list body r f)
   (make-defun name
               lambda-list
-              (objectify (cons 'progn body) (extend-r r lambda-list) f)))
+              (objectify (cons 'progn body) (extend-r r (collect-vars lambda-list)) f)))
 
 (defun objectify-defmacro (name lambda-list body r f)
   (set-info name :macro-function t)
@@ -504,10 +504,8 @@
                      (set-lexical-var var (car args)))
                    self))
               (:pir
-                 (let ((var (funcall self :get :var))
-                       (value (next-var)))
-                   (prt value " = " (parrot-var var))
-                   value))
+                 (let ((var (funcall self :get :var)))
+                   (parrot-var var)))
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
@@ -1324,9 +1322,12 @@
 (defun collect-vars (x)
   (if (null x)
       nil
-      (if (eq (car x) '&rest)
+      (if ($member (car x) '(&rest &optional &key &allow-other-keys &aux))
           (collect-vars (cdr x))
-          (cons (car x) (collect-vars (cdr x))))))
+          (cons (if (atom (car x))
+                    (car x)
+                    (caar x))
+                (collect-vars (cdr x))))))
 
 (defun list-to-arguments (list)
   (if list
@@ -1336,15 +1337,46 @@
 (defun pir-lambda-list (lambda-list)
   (if (null lambda-list)
       nil
-      (if (eq (car lambda-list) '&rest)
-          (progn
-            (let ((var (parrot-var (cadr lambda-list))))
-              (prt ".param pmc " var " :slurpy")
-              (pir-lambda-list (cddr lambda-list))
-              (prt var " = array_to_list(" var ")")))
-          (progn
-            (prt ".param pmc " (parrot-var (car lambda-list)))
-            (pir-lambda-list (cdr lambda-list))))))
+      (cond ((eq (car lambda-list) '&rest)
+             (let ((var (parrot-var (cadr lambda-list))))
+               (prt ".param pmc " var " :slurpy")
+               (pir-lambda-list (cddr lambda-list))
+               (prt var " = array_to_list(" var ")")))
+            ((eq (car lambda-list) '&optional)
+             (pir-lambda-list-optional (cdr lambda-list))
+             (pir-lambda-list-default-value (cdr lambda-list)))
+            (t
+             (prt ".param pmc " (parrot-var (car lambda-list)))
+             (pir-lambda-list (cdr lambda-list))))))
+
+(defun suplied-p-var (arg)
+  (if (and (consp arg)
+           (caddr arg))
+      (parrot-var (caddr arg))
+      (string+ (parrot-var (if (atom arg) arg (car arg))) "_P")))
+
+(defun pir-lambda-list-optional (lambda-list)
+  (let* ((arg (if (atom (car lambda-list))
+                  (cons (car lambda-list) nil)
+                  (car lambda-list)))
+         (var (parrot-var (car arg)))
+         (supliedp (suplied-p-var arg)))
+    (prt ".param pmc " var " :optional")
+    (prt ".param int " supliedp " :opt_flag")))
+
+(defun pir-lambda-list-default-value (lambda-list)
+  (let* ((arg (if (atom (car lambda-list))
+                  (cons (car lambda-list) nil)
+                  (car lambda-list)))
+         (var (parrot-var (car arg)))
+         (default-value (cadr arg))
+         (supliedp (suplied-p-var arg))
+         (label (next-label "OPTIONAL")))
+    (prt "if " supliedp " goto " label)
+    ;; TODO ここの objectify は他の他の引数がバインドされた状態で評価される必要がある。
+    ;; ここで objectify は遅すぎる。
+    (prt var " = " (funcall (objectify default-value nil nil) :pir))
+    (prt-label label)))
 
 (defvar *info* nil)
 

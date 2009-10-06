@@ -1,5 +1,25 @@
 (in-package :chimacho)
 
+(defun optional1 (&optional a)
+  a)
+(is nil (optional1))
+(is 1 (optional1 1))
+
+(defun optional2 (&optional (a 10))
+  a)
+(is 10 (optional2))
+(is 20 (optional2 20))
+
+(defun optional3 (a &optional (b 20))
+  (+ a b))
+(is 21 (optional3 1))
+(is 11 (optional3 1 10))
+
+(defun optional4 (a &optional (b a))
+  (+ a b))
+(is 2 (optional4 1))
+(is 3 (optional4 1 2))
+
 (defun tagbody-test1 (flag)
   (let ((n 1))
     (tagbody
