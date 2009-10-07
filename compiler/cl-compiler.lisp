@@ -85,6 +85,15 @@
 (defun $rplacd (cons x)
   (rplacd cons x))
 
+(defun $make-hash-table ()
+  (make-hash-table :test #'equal))
+
+(defun $gethash (hash key)
+  (gethash key hash))
+
+(defun $sethash (hash key value)
+  (setf (gethash key hash) value))
+
 (defun is (x y)
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))

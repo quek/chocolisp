@@ -1,5 +1,11 @@
 (in-package :chimacho)
 
+(let ((hash ($make-hash-table)))
+  ($sethash hash "key1" "val1")
+  ($sethash hash :key2 2)
+  (is "val1" ($gethash hash "key1"))
+  (is 2 ($gethash hash :key2)))
+
 (defun optional1 (&optional a)
   a)
 (is nil (optional1))
@@ -14,11 +20,6 @@
   (+ a b))
 (is 21 (optional3 1))
 (is 11 (optional3 1 10))
-
-(defun optional4 (a &optional (b a))
-  (+ a b))
-(is 2 (optional4 1))
-(is 3 (optional4 1 2))
 
 (defun tagbody-test1 (flag)
   (let ((n 1))

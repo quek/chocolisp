@@ -118,31 +118,31 @@ NOTFOUND:
         $P1 = $P0($P1)
         say $P1
 
-        say "load compiler/a.pir"
-        load_bytecode "compiler/a.pir"
+        ##say "load compiler/a.pir"
+        ##load_bytecode "compiler/a.pir"
 
-##        say "load compiler/ch-compiler.pir"
-##        load_bytecode "compiler/ch-compiler.pir"
-##        say "load compiler/back-quote.pir"
-##        load_bytecode "compiler/back-quote.pir"
-##        say "load compiler/read.pir"
-##        load_bytecode "compiler/read.pir"
-##        say "load compiler/compiler.pir"
-##        load_bytecode "compiler/compiler.pir"
-##
-##        $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
-##        say "compiling cl0.lisp"
-##        $P0("cl0/cl0.lisp")
-##        load_bytecode "cl0/cl0.pir"
-##        say "compiling io.lisp"
-##        $P0("cl0/io.lisp")
-##        load_bytecode "cl0/io.pir"
-##        say "compiling repl.lisp"
-##        $P0("cl0/repl.lisp")
-##        load_bytecode "cl0/repl.pir"
-##        ##say "compiling a.lisp"
-##        ##$P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
-##        ##load_bytecode "compiler/a.pir"
+        say "load compiler/ch-compiler.pir"
+        load_bytecode "compiler/ch-compiler.pir"
+        say "load compiler/back-quote.pir"
+        load_bytecode "compiler/back-quote.pir"
+        say "load compiler/read.pir"
+        load_bytecode "compiler/read.pir"
+        say "load compiler/compiler.pir"
+        load_bytecode "compiler/compiler.pir"
+
+        $P0 = get_hll_global ["CHIMACHO"], "PARROT-COMPILE-FILE"
+        say "compiling cl0.lisp"
+        $P0("cl0/cl0.lisp")
+        load_bytecode "cl0/cl0.pir"
+        say "compiling io.lisp"
+        $P0("cl0/io.lisp")
+        load_bytecode "cl0/io.pir"
+        say "compiling repl.lisp"
+        $P0("cl0/repl.lisp")
+        load_bytecode "cl0/repl.pir"
+        say "compiling a.lisp"
+        $P0("/home/ancient/letter/parrot/chocolisp/compiler/a.lisp")
+        load_bytecode "compiler/a.pir"
 ##
 ##        $P0 = get_hll_global ["CHIMACHO"], "REPL"
 ##        $P0()

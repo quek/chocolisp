@@ -217,3 +217,23 @@ error:
         say $P1
         .return($P1)
 .end
+
+.sub '$MAKE-HASH-TABLE'
+        new $P0, 'Hash'
+        .return($P0)
+.end
+
+.sub '$GETHASH'
+        .param pmc hash
+        .param pmc key
+        $P0 = hash[key]
+        .return($P0)
+.end
+
+.sub '$SETHASH'
+        .param pmc hash
+        .param pmc key
+        .param pmc value
+        hash[key] = value
+        .return(hash)
+.end
