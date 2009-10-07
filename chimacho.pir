@@ -237,3 +237,14 @@ error:
         hash[key] = value
         .return(hash)
 .end
+
+.sub '$HASH-TABLE-P'
+        .param pmc x
+        $I0 = isa x, 'Hash'
+        if $I0 goto true
+        .nil
+        .return(nil)
+ture:
+        .t
+        .return(t)
+.end

@@ -94,6 +94,9 @@
 (defun $sethash (hash key value)
   (setf (gethash key hash) value))
 
+(defun $hash-table-p (x)
+  (hash-table-p x))
+
 (defun is (x y)
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))
