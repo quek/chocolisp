@@ -54,8 +54,6 @@
             (objectify-progn (cddr form) r f))
         (defun
             (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
-        #|(defmacro
-        (objectify-defmacro (cadr form) (caddr form) (cdddr form) r f))|#
         (defvar
             (objectify-defvar (cadr form) (caddr form) r f))
         (in-package
@@ -250,12 +248,6 @@
   (make-defun name
               lambda-list
               (objectify (cons 'progn body) (extend-r r (collect-vars lambda-list)) f)))
-
-(defun objectify-defmacro (name lambda-list body r f)
-  (set-info name :macro-function t)
-  (make-defmacro name
-                 lambda-list
-                 (objectify (cons 'progn body) (extend-r r lambda-list) f)))
 
 (defun objectify-progn (body r f)
   (if (null body)
@@ -1031,34 +1023,6 @@
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
-(defun make-defmacro (name lambda-list body)
-  (let ((super (make-program :name name :lambda-list lambda-list :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp t)
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((name (funcall self :get :name))
-                        (lambda-list (funcall self :get :lambda-list))
-                        (body (funcall self :get :body))
-                        (outers (car args))
-                        (flat-function (make-flat-macro-function  name
-                                                                  lambda-list
-                                                                  nil
-                                                                  nil
-                                                                  nil
-                                                                  outers
-                                                                  nil))
-                        (extracted-body (funcall
-                                         body
-                                         :東京ミュウミュウ-metamorphose!
-                                         (cons flat-function outers))))
-                   (funcall flat-function :set :body extracted-body)
-                   flat-function))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
 (defun make-flat-function (name
                            lambda-list
                            body
@@ -1114,27 +1078,6 @@
                    ($mapcar (lambda (x)
                               (funcall x :pir))
                             inner-functions)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-flat-macro-function (name
-                                 lambda-list
-                                 body
-                                 inner-functions
-                                 lexical-store
-                                 outers
-                                 modifiers)
-  (let ((super (make-flat-function name
-                                   lambda-list
-                                   body
-                                   inner-functions
-                                   lexical-store
-                                   outers
-                                   modifiers))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
               (t (let ((ret (apply super message args)))
                    (if (eq ret super) self ret))))))))
 
