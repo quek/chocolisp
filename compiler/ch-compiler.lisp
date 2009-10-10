@@ -45,6 +45,9 @@
 
 (in-package :common-lisp)
 
+(defvar lambda-list-keywords '(&allow-other-keys &aux &body &environment
+                               &key &optional &rest &whole))
+
 (defun list (&rest list)
   list)
 

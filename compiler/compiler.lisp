@@ -268,7 +268,7 @@
 (defun default-values (lambda-list r f args acc)
   (if lambda-list
       (let ((car (car lambda-list)))
-        (cond (($member car '(&rest &optional &key &allow-other-keys &aux))
+        (cond (($member car lambda-list-keywords)
                (default-values (cdr lambda-list) r f args acc))
               ((atom car)
                (default-values (cdr lambda-list)
@@ -1045,7 +1045,7 @@
 (defun collect-vars (x)
   (if (null x)
       nil
-      (if ($member (car x) '(&rest &optional &key &allow-other-keys &aux))
+      (if ($member (car x) lambda-list-keywords)
           (collect-vars (cdr x))
           (cons (if (atom (car x))
                     (car x)
