@@ -97,6 +97,9 @@
 (defun $hash-table-p (x)
   (hash-table-p x))
 
+(defun $maphash (f hash)
+  (maphash f hash))
+
 (defun is (x y)
   (unless (equal x y)
     (error "[~a] is not [~a]." x y)))

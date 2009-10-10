@@ -227,7 +227,11 @@ error:
         .param pmc hash
         .param pmc key
         $P0 = hash[key]
+        if_null $P0, L1
         .return($P0)
+L1:
+        .nil
+        .return(nil)
 .end
 
 .sub '$SETHASH'
@@ -244,7 +248,20 @@ error:
         if $I0 goto true
         .nil
         .return(nil)
-ture:
+true:
         .t
         .return(t)
+.end
+
+.sub '$MAPHASH'
+        .param pmc f
+        .param pmc hash
+        $P1 = iter hash
+iter_loop:
+        unless $P1 goto iter_end
+        $S1 = shift $P1
+        $P2 = hash[$S1]
+        f($S1, $P2)
+        goto iter_loop
+iter_end:
 .end

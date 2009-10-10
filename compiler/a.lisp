@@ -21,6 +21,11 @@
 (is 21 (optional3 1))
 (is 11 (optional3 1 10))
 
+(defun optional4 (a &optional (b a))
+  (+ a b))
+(is 2 (optional4 1))
+(is 3 (optional4 1 2))
+
 (defun tagbody-test1 (flag)
   (let ((n 1))
     (tagbody

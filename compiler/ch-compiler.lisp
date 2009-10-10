@@ -77,20 +77,11 @@
          (*pir-stream* (chimacho::$make-string-output-stream))
          (object (chimacho::objectify form nil nil)))
     (chimacho::prt-in-namespace (chimacho::$package-name *package*))
-    (if (funcall object :toplevelp)
-        (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
-        (let ((flat-function (chimacho::make-flat-function
-                              ($gensym "toplevel")
-                              nil
-                              nil
-                              nil
-                              nil
-                              nil
-                              '(":anon" ":init" ":load"))))
-          (setq object (funcall object
-                                :東京ミュウミュウ-metamorphose!
-                                (list flat-function)))
-          (funcall flat-function :set :body object)
-          (setq object flat-function)))
-    (funcall object :pir)
+    (if (chimacho::get-value object :toplevelp)
+        (setq object (chimacho::東京ミュウミュウ-metamorphose! object nil))
+        (let ((sub (chimacho::make-sub :name (chimacho::$gensym "eval")
+                                       :modifiers '(":anon" ":init" ":load"))))
+          (chimacho::set-value sub :body (chimacho::東京ミュウミュウ-metamorphose! object sub))
+          (setq object sub)))
+    (chimacho::pir object)
     (chimacho::pir-eval (chimacho::$get-output-stream-string *pir-stream*))))

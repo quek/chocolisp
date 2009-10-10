@@ -17,41 +17,60 @@
           (objectify-reference form r)
           (objectify-quotation form))
       (case (car form)
-        (parrot-code
-           (make-parrot-code (cdr form)))
-        (quote
-           (objectify-quotation (cadr form)))
         (block
             (objectify-block (cadr form) (cddr form) r f))
-        (return-from
-         (objectify-return-from (cadr form) (cddr form) r f))
-        (tagbody
-           (if (null (cdr form))
-               (objectify-quotation nil)
-               (objectify-tagbody (cdr form) r f)))
+        (catch
+            ($error "not implemented."))
+        (eval-when
+            (objectify-eval-when (cadr form) (cddr form) r f))
+        (flet
+            (objectify-flet (cadr form) (cddr form) r f))
+        (function
+           (objectify-function (cadr form) r f))
         (go
            (objectify-go (cadr form) r))
         (if
             (objectify-if (cadr form) (caddr form) (cadddr form) r f))
+        (labels
+            (objectify-labels (cadr form) (cddr form) r f))
         (let
             (objectify-let (cadr form) (cddr form) r f))
         (let*
             (objectify-let* (cadr form) (cddr form) r f))
-        (function
-           (objectify-function (cadr form) r f))
+        (load-time-value
+           ($error "not implemented."))
+        (locally
+            ($error "not implemented."))
+        (macrolet
+            ($error "not implemented."))
+        (multiple-value-call
+            ($error "not implemented."))
+        (multiple-value-prog1
+            ($error "not implemented."))
         (progn
           (objectify-progn (cdr form) r f))
+        (progv
+            ($error "not implemented."))
+        (quote
+           (objectify-quotation (cadr form)))
+        (return-from
+         (objectify-return-from (cadr form) (cddr form) r f))
         (setq
            ;; TODO 1 つだけじゃない
            (objectify-setq (cadr form) (caddr form) r f))
-        (flet
-            (objectify-flet (cadr form) (cddr form) r f))
-        (labels
-            (objectify-labels (cadr form) (cddr form) r f))
-        (eval-when
-            (objectify-eval-when (cadr form) (cddr form) r f))
+        (symbol-macrolet
+            ($error "not implemented."))
+        (tagbody
+           (if (null (cdr form))
+               (objectify-quotation nil)
+               (objectify-tagbody (cdr form) r f)))
         (the
             (objectify-progn (cddr form) r f))
+        (throw
+            ($error "not implemented."))
+        (unwind-protect
+             ($error "not implemented."))
+        ;; ここから下は special form ではない
         (defun
             (objectify-defun (cadr form) (caddr form) (cdddr form) r f))
         (defvar
@@ -59,10 +78,12 @@
         (in-package
            (objectify
             ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-                   ($list 'setq '*package*
-                          ($list 'find-package (cadr form)))) r f))
+                    ($list 'setq '*package*
+                            ($list 'find-package (cadr form)))) r f))
         (declare
            (objectify nil r f))
+        (parrot-code
+           (make-parrot-code (cdr form)))
         (t
            (if (symbolp (car form))
                (if (macro-function (car form))
@@ -71,6 +92,7 @@
                (objectify-application (car form) (cdr form) r f))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; objectify
 (defun objectify-block (name form r f)
   (let* ((*block* (cons name *block*)))
     (make-block name
@@ -157,7 +179,7 @@
 
 (defun objectify-setq (symbol value-form r f)
   (if (and *compile-toplevel*
-           (eq 'cl:*package* symbol))
+           (eq 'common-lisp:*package* symbol))
       (make-change-package
        value-form (make-dynamic-assignment symbol (objectify value-form r f)))
       (case (var-kind symbol r)
@@ -207,8 +229,7 @@
          (values  (list-to-arguments ($mapcar (lambda (x)
                                                 (objectify (cadr x) r f))
                                               bindings))))
-    (make-let vars
-              values
+    (make-let vars values
               (objectify (cons 'progn body) (extend-r r vars) f))))
 
 (defun objectify-let* (bindings body r f)
@@ -258,276 +279,275 @@
                       (objectify (cons 'progn (cdr body)) r f)))))
 
 (defun objectify-application (fun args r f)
-  (if (symbolp fun)
-      (if ($assoc fun f)
-          (objectify-application-local-function fun args r f)
-          (objectify-application-symbol fun args r f))
-      (if (and ($consp fun)
-               (eq (car fun) 'lambda))
-          (objectify-application-lambda fun args r f)
-          ($error (string+ fun " is not applicable.")))))
+  (let ((args (list-to-arguments ($mapcar (lambda (x) (objectify x r f)) args))))
+    (if (symbolp fun)
+        (if ($assoc fun f)
+            (make-lexical-application (cdr ($assoc fun f)) args)
+            (if (eq *package* ($symbol-package fun))
+                (make-local-application fun args)
+                (make-global-application fun args)))
+        (if (and ($consp fun)
+                 (eq (car fun) 'lambda))
+            (let ((lambda-form (objectify-lambda (cadr fun)
+                                                 (cddr fun)
+                                                 r f)))
+              (make-lambda-application lambda-form args))
+            ($error (string+ fun " is not applicable."))))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; make
+(defun get-value (hash key)
+  ($gethash hash key))
 
-(defun objectify-application-local-function (fun args r f)
-  (make-regular-application
-   (make-local-function (cdr ($assoc fun f)))
-   (list-to-arguments ($mapcar (lambda (x)
-                                 (objectify x r f))
-                               args))))
+(defun set-value (hash key value)
+  ($sethash hash key value))
 
-(defun objectify-application-symbol (fun args r f)
-  (let ((fun (if (eq *package* ($symbol-package fun))
-                 (make-local-function fun)
-                 (make-global-function fun)))
-        (objected-args (list-to-arguments
-                        ($mapcar (lambda (x)
-                                   (objectify x r f))
-                                 args))))
-    (make-regular-application fun objected-args)))
+(defun add-value (hash key value)
+  (set-value hash key (cons value (get-value hash key))))
 
-(defun objectify-application-lambda (lambda-form args r f)
-  (let ((lambda-form (objectify-lambda (cadr lambda-form)
-                                       (cddr lambda-form)
-                                       r f))
-        (objected-args (list-to-arguments
-                        ($mapcar (lambda (x) (objectify x r f))
-                                 args))))
-    (make-lambda-application lambda-form objected-args)))
- ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun collect-regsiters (form acc)
-  (if form
-      (if (and (keywordp (car form))
-               (not (assoc (car form) acc)))
-          (collect-regsiters (cdr form) (acons (car form) (next-var) acc))
-          (collect-regsiters (cdr form) acc))
-      acc))
+(defun call (hash key &rest args)
+  (apply (get-value hash key) hash args))
 
-(defun make-parrot-code (form)
-  (let ((super (make-program :form form))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (let ((form (funcall self :get :form))
-                            (regs nil)
-                            (code "")
-                            (var (next-var)))
-                        ($mapcar (lambda (x)
-                                   (if (keywordp x)
-                                       (progn
-                                         (unless (assoc x regs)
-                                           (setq regs (acons x (next-var) regs)))
-                                         (setq code (string+ code (cdr (assoc x regs)))))
-                                       (setq code (string+ code x))))
-                                 form)
-                        (prt var " = " code)
-                        var))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
+(defun make-object (&rest args)
+  (let ((self ($make-hash-table)))
+    (labels ((f (x)
+               (when x
+                 (set-value self (car x) (cadr x))
+                 (f (cddr x)))))
+      (f args))
+    self))
 
-(defun make-object (&rest vars)
-  (let (self
-        (vars (make-vars vars)))
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp
-                 nil)
-              (:all-vars
-                 vars)
-              (:get
-                 (cdr ($assoc (car args) vars)))
-              (:set
-                 (let ((cons ($assoc (car args) vars)))
-                   (if cons
-                       ($rplacd cons (cadr args)))))
-              (:add
-                 (let ((cons ($assoc (car args) vars)))
-                   (if cons
-                       ($rplacd cons (cons (cadr args) (cdr cons))))))
-              (t
-                 ($error (string+ message " in unknown message."))))))))
+(defun pir (self)
+  (call self :pir))
 
-(defun make-program (&rest vars)
-  (let ((super (apply #'make-object vars))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:東京ミュウミュウ-metamorphose!
-                      (apply #'walk self (funcall self :all-vars) message args)
-                      self)
-                   (t
-                      (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
+(defun 東京ミュウミュウ-metamorphose! (self outer)
+  (call self :sub outer))
 
-(defun make-block (name type form)
-  (let ((super (make-program :name name :type type :form form))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (let ((form (funcall self :get :form))
-                            (handler (next-var))
-                            (handler-label (next-label "BLOCK"))
-                            (skip-label (next-label "BLOCK")))
-                        (prt handler " = new 'ExceptionHandler'")
-                        (prt "set_addr " handler ", " handler-label)
-                        (prt handler ".'handle_types'(" (princ-to-string type) ")")
-                        (prt "push_eh " handler)
-                        (let ((ret (funcall form :pir))
-                              (ex (next-var))
-                              (can-handle-label (next-label "BLOCK")))
-                          (prt "pop_eh")
-                          (prt "goto " skip-label)
-                          (prt-label handler-label)
-                          (prt ".get_results(" ex ")")
-                          (prt "pop_eh")
-                          (prt "$I0 = " handler ".'can_handle'(" ex ")")
-                          (prt "if $I0 goto " can-handle-label)
-                          (prt "rethrow " ex)
-                          (prt-label can-handle-label)
-                          (prt ret " = " ex "['payload']")
-                          (prt-label skip-label)
-                          ret)))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
+(defun walk (self key &rest args)
+  ($maphash (lambda (k v)
+              (when ($hash-table-p v)
+                (set-value self k (apply #'call v key args))))
+            self)
+  self)
 
-(defun make-return-from (name type result)
-  (let ((super (make-program :name name :type type :result result))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (let ((type (funcall self :get :type))
-                            (result (funcall self :get :result))
-                            (ex-var (next-var))
-                            (dummy-ret-var (next-var)))
-                        (prt ex-var " = new 'Exception'")
-                        (prt ex-var "['type'] = " (princ-to-string type))
-                        (prt ex-var "['payload'] = " (funcall result :pir))
-                        (prt "throw " ex-var)
-                        dummy-ret-var))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
+(defun make-program (&rest args)
+  (let ((self (apply #'make-object args)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (walk self :sub outer)))
+    self))
 
-(defun make-tagbody (tags body)
-  (let ((super (make-program :tags tags :body body))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:東京ミュウミュウ-metamorphose!
-                      (funcall self :set :body
-                               ($mapcar (lambda (x)
-                                          (apply x :東京ミュウミュウ-metamorphose! args))
-                                        (funcall self :get :body)))
-                      self)
-                   (:pir
-                      (let ((tags (funcall self :get :tags))
-                            (body (funcall self :get :body)))
-                        ($mapcar (lambda (x)
-                                   (let ((cont-var (parrot-cont x)))
-                                     (prt ".local pmc " cont-var)
-                                     (prt cont-var " = new 'Continuation'")
-                                     (prt "set_addr " cont-var ", " (parrot-tag x))
-                                     (prt ".lex '" cont-var "', " cont-var)))
-                                 tags)
-                        ($mapcar (lambda (x)
-                                   (apply x :pir args))
-                                 body)
-                        (funcall (make-constant nil) :pir)))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
 
-(defun make-tag (tag)
-  (let ((super (make-program :tag tag))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (prt-label (parrot-tag (funcall self :get :tag))))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
-
-(defun make-local-go (tag)
-  (let ((super (make-program :tag tag))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (let ((tag (parrot-tag (funcall self :get :tag))))
-                        (prt "goto " tag)
-                        (next-var)))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
-
-(defun make-lexical-go (tag)
-  (let ((super (make-program :tag tag))
-        self)
-    (setq self (lambda (message &rest args)
-                 (case message
-                   (:pir
-                      (let ((var (parrot-cont (funcall self :get :tag))))
-                        (prt ".local pmc " var)
-                        (prt var " = find_lex '" var "'")
-                        (prt var "(0)")
-                        var))
-                   (t (let ((ret (apply super message args)))
-                        (if (eq ret super) self ret))))))))
-
-(defun make-reference (var)
-  (let ((super (make-program :var var))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
 
 (defun make-local-reference (var)
-  (let ((super (make-reference var))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let ((var (funcall self :get :var)))
+  (let ((self (make-program :var var)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let ((var (get-value self :var)))
                    (unless ($member var
                                     (collect-vars
-                                     (funcall (caar args) :get :lambda-list)))
-                     (set-lexical-var var (car args)))
-                   self))
-              (:pir
-                 (let ((var (funcall self :get :var)))
-                   (parrot-var var)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                                     (get-value outer :lambda-list)))
+                     (set-lexical-var var outer))
+                   self)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (get-value self :var)))
+                   (parrot-var var))))
+    self))
 
-(defun make-lexical-reference (var)
-  (let ((super (make-reference var))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let ((var (funcall self :get :var))
-                       (outers (car args)))
-                   (set-lexical-var var outers))
-                 self)
-              (:pir
-                 (let ((var (parrot-var (funcall self :get :var))))
+(defun make-let (vars values body)
+  (let ((self (make-program :vars vars :values values :body body)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let* ((name ($gensym "let"))
+                        (sub (make-sub :name name
+                                       :lambda-list (get-value self :vars)
+                                       :outer outer)))
+                   (add-value outer :inners sub)
+                   (set-value sub :body (東京ミュウミュウ-metamorphose!
+                                         (get-value self :body) sub))
+                   (make-lexical-application name
+                                             (東京ミュウミュウ-metamorphose!
+                                              (get-value self :values) outer)))))
+    self))
+
+(defun make-sub (&rest args)
+  ;; name modifiers lambda-list default-values lexical-store body outer inners
+  (let ((self (apply #'make-program args)))
+    (set-value self :toplevelp t)
+    (set-value self :pir
+               (lambda (self)
+                 (let* ((*var-counter* 0)
+                        (*label-counter* 0)
+                        (name (get-value self :name))
+                        (modifiers (join " " (get-value self :modifiers)))
+                        (lambda-list (get-value self :lambda-list))
+                        (arguments (collect-vars lambda-list))
+                        ;; TODO (default-values (get-value self :default-values))
+                        (lexical-store (get-value self :lexical-store))
+                        (outer (get-value self :outer)))
+                   (prt-top ".sub "
+                            (parrot-sub-name name)
+                            (if outer
+                                (string+ " :outer("
+                                         (parrot-sub-name (get-value outer :name))
+                                         ") ")
+                                "")
+                            modifiers)
+                   (pir-lambda-list lambda-list)
+                   (let ((lex-vars ($mapcar (lambda (var)
+                                              (when (special-var-p var)
+                                                (prt-push-dynamic var)
+                                                var))
+                                            arguments)))
+                     ($mapcar (lambda (var)
+                                (unless ($member var lex-vars)
+                                  (let ((var (parrot-var var)))
+                                    (prt ".lex '" var "', " var))))
+                              lexical-store))
+                   (prt ".return(" (pir (get-value self :body)) ")")
+                   (prt-top ".end")
+                   (new-line)
+                   ($mapcar #'pir (get-value self :inners)))))
+    self))
+
+(defun make-parrot-code (form)
+  (let ((self (make-program :form form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((form (get-value self :form))
+                       (regs nil)
+                       (code "")
+                       (var (next-var)))
+                   ($mapcar (lambda (x)
+                              (if (keywordp x)
+                                  (progn
+                                    (unless (assoc x regs)
+                                      (setq regs (acons x (next-var) regs)))
+                                    (setq code (string+ code (cdr (assoc x regs)))))
+                                  (setq code (string+ code x))))
+                            form)
+                   (prt var " = " code)
+                   var)))
+    self))
+
+(defun make-block (name type form)
+  (let ((self (make-program :name name :type type :form form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((form (get-value self :form))
+                       (handler (next-var))
+                       (handler-label (next-label "BLOCK"))
+                       (skip-label (next-label "BLOCK")))
+                   (prt handler " = new 'ExceptionHandler'")
+                   (prt "set_addr " handler ", " handler-label)
+                   (prt handler ".'handle_types'(" (princ-to-string type) ")")
+                   (prt "push_eh " handler)
+                   (let ((ret (pir form))
+                         (ex (next-var))
+                         (can-handle-label (next-label "BLOCK")))
+                     (prt "pop_eh")
+                     (prt "goto " skip-label)
+                     (prt-label handler-label)
+                     (prt ".get_results(" ex ")")
+                     (prt "pop_eh")
+                     (prt "$I0 = " handler ".'can_handle'(" ex ")")
+                     (prt "if $I0 goto " can-handle-label)
+                     (prt "rethrow " ex)
+                     (prt-label can-handle-label)
+                     (prt ret " = " ex "['payload']")
+                     (prt-label skip-label)
+                     ret))))
+    self))
+
+(defun make-return-from (name type result)
+  (let ((self (make-program :name name :type type :result result)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((type (get-value self :type))
+                       (result (get-value self :result))
+                       (ex-var (next-var))
+                       (dummy-ret-var (next-var)))
+                   (prt ex-var " = new 'Exception'")
+                   (prt ex-var "['type'] = " (princ-to-string type))
+                   (prt ex-var "['payload'] = " (pir result))
+                   (prt "throw " ex-var)
+                   dummy-ret-var)))
+    self))
+
+(defun make-tagbody (tags body)
+  (let ((self (make-program :tags tags :body body)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (set-value self :body
+                            ($mapcar (lambda (x)
+                                       (東京ミュウミュウ-metamorphose! x outer))
+                                     (get-value self :body)))
+                 self))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((tags (get-value self :tags))
+                       (body (get-value self :body)))
+                   ($mapcar (lambda (x)
+                              (let ((cont-var (parrot-cont x)))
+                                (prt ".local pmc " cont-var)
+                                (prt cont-var " = new 'Continuation'")
+                                (prt "set_addr " cont-var ", " (parrot-tag x))
+                                (prt ".lex '" cont-var "', " cont-var)))
+                            tags)
+                   ($mapcar #'pir body)
+                   (pir (make-constant nil)))))
+    self))
+
+(defun make-tag (tag)
+  (let ((self (make-program :tag tag)))
+    (set-value self :pir
+               (lambda (self)
+                 (prt-label (parrot-tag (get-value self :tag)))))
+    self))
+
+(defun make-local-go (tag)
+  (let ((self (make-program :tag tag)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((tag (parrot-tag (get-value self :tag))))
+                   (prt "goto " tag)
+                   (next-var))))
+    self))
+
+(defun make-lexical-go (tag)
+  (let ((self (make-program :tag tag)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (parrot-cont (get-value self :tag))))
                    (prt ".local pmc " var)
                    (prt var " = find_lex '" var "'")
-                   var))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   (prt var "(0)")
+                   var)))
+    self))
+
+(defun make-reference (var)
+  (make-program :var var))
+
+(defun make-lexical-reference (var)
+  (let ((self (make-reference var)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let ((var (get-value self :var)))
+                   (set-lexical-var var outer))
+                 self))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (parrot-var (get-value self :var))))
+                   (prt ".local pmc " var)
+                   (prt var " = find_lex '" var "'")
+                   var)))
+    self))
 
 (defun make-dynamic-reference (var)
-  (let ((super (make-reference var))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((var (funcall self :get :var))
+  (let ((self (make-reference var)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (get-value self :var))
                        (value (next-var)))
                    (prt value " = get_dynamic_scope_value('"
                         (parrot-var var)
@@ -536,56 +556,38 @@
                         ", utf8:unicode:"
                         (prin1-to-string ($symbol-name var))
                         ")")
-                   value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   value)))
+    self))
 
 (defun make-assignment (var form)
-  (let ((super (make-program :var var :form form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((value (funcall (funcall self :get :form) :pir)))
-                   (prt (parrot-var (funcall self :get :var)) " = " value)
-                   value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (let ((self (make-program :var var :form form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((value (pir (get-value self :form))))
+                   (prt (parrot-var (get-value self :var)) " = " value)
+                   value)))
+    self))
 
 (defun make-local-assignment (var form)
-  (let ((super (make-assignment var form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (make-assignment var form))
 
 (defun make-lexical-assignment (var form)
-  (let ((super (make-assignment var form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((var (parrot-var (funcall self :get :var)))
-                       (value (funcall (funcall self :get :form) :pir)))
+  (let ((self (make-assignment var form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (parrot-var (get-value self :var)))
+                       (value (pir (get-value self :form))))
                    (prt "store_lex '" var "', " value)
-                   value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   value)))
+    self))
 
 (defun make-dynamic-assignment (var form)
-  (let ((super (make-assignment var form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let* ((var (funcall self :get :var))
-                        (form (funcall self :get :form))
-                        (value (funcall form :pir)))
+  (let ((self (make-assignment var form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let* ((var (get-value self :var))
+                        (form (get-value self :form))
+                        (value (pir form )))
                    (prt "set_dynamic_scope_value('"
                         (parrot-var var)
                         "', utf8:unicode:"
@@ -595,303 +597,168 @@
                         ", "
                         value
                         ")")
-                   value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   value)))
+    self))
 
 (defun make-constant (value)
-  (let ((super (make-program :value value))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (pir-constant (funcall self :get :value)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (let ((self (make-program :value value)))
+    (set-value self :pir
+               (lambda (self)
+                 (pir-constant (get-value self :value))))
+    self))
 
 (defun make-if (test then else)
-  (let ((super (make-program :test test :then then :else else))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((test (funcall self :get :test))
-                       (then (funcall self :get :then))
-                       (else (funcall self :get :else))
+  (let ((self (make-program :test test :then then :else else)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((test (get-value self :test))
+                       (then (get-value self :then))
+                       (else (get-value self :else))
                        (result (next-var))
                        (else-label (next-label "ELSE"))
                        (end-label (next-label "ENDIF")))
-                   (prt "eq_addr "
-                        (prt-nil)
-                        ", "
-                        (funcall test :pir)
-                        ", "
-                        else-label)
-                   (prt result " = " (funcall then :pir))
+                   (prt "eq_addr " (prt-nil) ", " (pir test) ", " else-label)
+                   (prt result " = " (pir then))
                    (prt "goto " end-label)
                    (prt-label else-label)
-                   (prt result " = " (funcall else :pir))
+                   (prt result " = " (pir else))
                    (prt-label end-label)
-                   result))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   result)))
+    self))
 
 (defun make-progn (first rest)
-  (let ((super (make-program :first first :rest rest))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((first (funcall self :get :first))
-                       (rest (funcall self :get :rest)))
-                   (funcall first :pir)
-                   (funcall rest :pir)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-let (vars values body)
-  (let ((super (make-program :vars vars :values values :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((vars (funcall self :get :vars))
-                        (values (funcall self :get :values))
-                        (body (funcall self :get :body))
-                        (outers (car args))
-                        (name ($gensym "let"))
-                        (flat-function (make-flat-function
-                                        name
-                                        vars
-                                        nil
-                                        nil
-                                        nil
-                                        outers
-                                        nil)))
-                   (if outers
-                       (funcall (car outers) :add
-                                :inner-functions flat-function))
-                   (funcall flat-function :set :body
-                            (funcall body :東京ミュウミュウ-metamorphose!
-                                     (cons flat-function outers)))
-                   (make-extracted-let
-                    name
-                    (funcall values :東京ミュウミュウ-metamorphose!
-                             outers))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (let ((self (make-program :first first :rest rest)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((first (get-value self :first))
+                       (rest (get-value self :rest)))
+                   (pir first)
+                   (pir rest))))
+    self))
 
 (defun make-lambda (name lambda-list body)
-  (let ((super (make-program :name name :lambda-list lambda-list :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((name (funcall self :get :name))
-                        (lambda-list (funcall self :get :lambda-list))
-                        (body (funcall self :get :body))
-                        (outers (car args))
-                        (flat-function (make-flat-function name
-                                                           lambda-list
-                                                           nil
-                                                           nil
-                                                           nil
-                                                           outers
-                                                           nil)))
-                   (if outers
-                       (funcall (car outers) :add
-                                :inner-functions flat-function))
-                   (funcall flat-function :set :body
-                            (funcall body :東京ミュウミュウ-metamorphose!
-                                     (cons flat-function outers)))
-                   (make-extracted-lambda name)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (let ((self (make-program :name name :lambda-list lambda-list :body body)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let* ((name (get-value self :name))
+                        (lambda-list (get-value self :lambda-list))
+                        (body (get-value self :body))
+                        (sub (make-sub :name name
+                                       :lambda-list lambda-list
+                                       :outer outer)))
+                   (add-value outer :inners sub)
+                   (set-value sub :body (東京ミュウミュウ-metamorphose! body sub))
+                   (make-extracted-lambda name))))
+    self))
 
 (defun make-flet (lambdas body)
-  (let ((super (make-program :lambdas lambdas :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let ((lambdas (funcall self :get :lambdas))
-                       (body  (funcall self :get :body))
-                       (outers (car args)))
+  (let ((self (make-program :lambdas lambdas :body body)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let ((lambdas (get-value self :lambdas))
+                       (body  (get-value self :body)))
                    ($mapcar (lambda (x)
-                              (funcall x :東京ミュウミュウ-metamorphose!
-                                       outers))
+                              (東京ミュウミュウ-metamorphose! x outer))
                             lambdas)
-                   (funcall body :東京ミュウミュウ-metamorphose! outers)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   (東京ミュウミュウ-metamorphose! body outer))))
+    self))
 
-(defun make-application (&rest args)
-  (let ((super (apply #'make-program args))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-regular-application (function arguments)
-  (let ((super (make-application :function function :arguments arguments))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((function (funcall self :get :function))
-                       (arguments (funcall self :get :arguments)))
-                   (apply function :pir (funcall arguments :pir))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-lambda-application (lambda arguments)
-  (let ((super (make-application :lambda lambda :arguments arguments))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((lambda (funcall self :get :lambda))
-                        (arguments (funcall self :get :arguments))
-                        (lambda-list (funcall lambda :get :lambda-list))
-                        (body (funcall lambda :get :body))
-                        (outers (car args))
-                        (name ($gensym "lambda"))
-                        (flat-function (make-flat-function name
-                                                           lambda-list
-                                                           nil
-                                                           nil
-                                                           nil
-                                                           outers
-                                                           nil)))
-                   (if outers
-                       (funcall (car outers) :add
-                                :inner-functions flat-function))
-                   (funcall flat-function :set :body
-                            (funcall body
-                                     :東京ミュウミュウ-metamorphose!
-                                     (cons flat-function outers)))
-                   (make-regular-application
-                    (make-local-function name)
-                    (funcall arguments :東京ミュウミュウ-metamorphose!
-                             (cons flat-function outers)))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-arguments (first rest)
-  (let ((super (make-program :first first :rest rest))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((first (funcall self :get :first))
-                       (rest  (funcall self :get :rest)))
-                   (cons (funcall first :pir) (funcall rest :pir))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-no-argument ()
-  (let ((super (make-program))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir nil)
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-function (symbol)
-  (let ((super (make-program :symbol symbol))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-local-function (symbol)
-  (let ((super (make-function symbol))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((symbol (funcall self :get :symbol))
+(defun make-lexical-application (function args)
+  (let ((self (make-program :function function :args args)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((args (join ", " (pir (get-value self :args))))
                        (sub (next-var))
                        (return-value (next-var)))
-                   (prt ".const 'Sub' " sub " = " (parrot-sub-name symbol))
+                   (prt ".const 'Sub' " sub " = " (parrot-sub-name (get-value self :function)))
                    (prt sub " = newclosure " sub)
-                   (prt return-value " = " sub "(" (join ", " args) ")")
-                   return-value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   (prt return-value " = " sub "(" args ")")
+                   return-value)))
+    self))
 
-(defun make-global-function (symbol)
-  (let ((super (make-function symbol))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((symbol (funcall self :get :symbol))
+(defun make-local-application (function args)
+  (let ((self (make-program :function function :args args)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((args (join ", " (pir (get-value self :args))))
+                       (sub (parrot-sub-name (get-value self :function)))
+                       (return-value (next-var)))
+                   (prt return-value " = " sub "(" args ")")
+                   return-value)))
+    self))
+
+(defun make-global-application (function args)
+  (let ((self (make-program :function function :args args)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((symbol (get-value self :function))
+                       (args (join ", " (pir (get-value self :args))))
                        (fun-var (next-var))
                        (return-value (next-var)))
                    (prt fun-var
                         " = get_hll_global [ "
                         (prin1-to-string ($package-name ($symbol-package symbol)))
-                        " ], "
+                        " ], binary:"
                         (prin1-to-string ($symbol-name symbol)))
-                   (prt return-value
-                        "  = "
-                        fun-var
-                        "("
-                        (join ", " args)
-                        ")")
-                   return-value))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   (prt return-value "  = " fun-var "(" args ")")
+                   return-value)))
+    self))
+
+(defun make-lambda-application (lambda args)
+  (let ((self (make-program :lambda lambda :args args)))
+    (set-value self :sub
+               (lambda (self outer)
+                 (let* ((lambda (get-value self :lambda))
+                        (lambda-list (get-value lambda :lambda-list))
+                        (body (get-value lambda :body))
+                        (name ($gensym "lambda"))
+                        (sub (make-sub :name name
+                                       :lambda-list lambda-list
+                                       :outer outer)))
+                   (add-value outer :inners sub)
+                   (set-value sub :body (東京ミュウミュウ-metamorphose! body sub))
+                   (make-lexical-application name
+                                             (東京ミュウミュウ-metamorphose!
+                                              (get-value self :args) sub)))))
+    self))
+
+
+(defun make-arguments (first rest)
+  (let ((self (make-program :first first :rest rest)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((first (get-value self :first))
+                       (rest  (get-value self :rest)))
+                   (cons (pir first) (pir rest)))))
+    self))
+
+(defun make-no-argument ()
+  (let ((self (make-program)))
+    (set-value self :pir (lambda (self) self nil))
+    self))
 
 (defun make-change-package (name setq-form)
-  (let ((super (make-program :name name :setq-form setq-form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:東京ミュウミュウ-metamorphose!
-                 (let ((setq-form (funcall self :get :setq-form))
-                       (outers (car args)))
-                   (funcall (car outers) :add :inner-functions
-                            self)
-                   (apply setq-form message args)))
-              (:pir
-                 (let ((name (funcall self :get :name)))
-                   ;;(prt-in-namespace ($symbol-name (cadr name)))
-                   (prt-in-namespace ($package-name (eval name)))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+  (let ((self (make-program :name name :setq-form setq-form)))
+    (set-value self :sub
+          (lambda (self outer)
+            (let ((setq-form (get-value self :setq-form)))
+              (add-value outer :inners self)
+              (東京ミュウミュウ-metamorphose! setq-form outer))))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name)))
+                   (prt-in-namespace ($package-name (eval name))))))
+    self))
 
 (defun make-eval-when (situations form raw-form)
-  (let ((super (make-program :situations situations :form form
-                             :raw-form raw-form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp t)
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((situations (funcall self :get :situations))
-                        (form (funcall self :get :form))
-                        (raw-form (funcall self :get :raw-form))
+  (let ((self (make-program :situations situations :form form
+                            :raw-form raw-form)))
+    (set-value self :toplevelp t)
+    (set-value self :sub
+               (lambda (self outer)
+                 (let* ((situations (get-value self :situations))
+                        (form (get-value self :form))
+                        (raw-form (get-value self :raw-form))
                         (modifiers nil))
                    (if (and (not *in-eval*)
                             ($member :compile-toplevel situations))
@@ -901,91 +768,61 @@
                    (if ($member :execute situations)
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
-                       (let ((fun (make-flat-function ($gensym "eval-when")
-                                                      nil
-                                                      form
-                                                      nil
-                                                      nil
-                                                      nil
-                                                      (cons ":anon" modifiers))))
-                         (funcall fun :set :body
-                                  (funcall form
-                                           :東京ミュウミュウ-metamorphose!
-                                           (cons fun nil)))
-                         fun)
-                       (make-constant nil))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                       (let ((sub (make-sub :name ($gensym "eval-when")
+                                            :outer outer
+                                            :modifiers (cons ":anon" modifiers))))
+                         (set-value sub :body (東京ミュウミュウ-metamorphose! form sub))
+                         sub)
+                       (make-constant nil)))))
+    self))
 
 (defun make-defvar (symbol form)
-  (let ((super (make-program :symbol symbol :form form))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let* ((symbol (funcall self :get :symbol))
-                        (form   (funcall self :get :form))
+  (let ((self (make-program :symbol symbol :form form)))
+    (set-value self :pir
+               (lambda (self)
+                 (let* ((symbol (get-value self :symbol))
+                        (form   (get-value self :form))
                         (sym-var (prt-intern-symbol symbol)))
                    (prt sym-var ".'specialize'()")
                    (prt "setattribute "
                         sym-var
                         ", 'value', "
-                        (funcall form :pir))
-                   sym-var))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                        (pir form))
+                   sym-var)))
+    self))
 
 (defun make-defun (name lambda-list body)
-  (let ((super (make-program :name name :lambda-list lambda-list :body body))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp t)
-              (:東京ミュウミュウ-metamorphose!
-                 (let* ((name (funcall self :get :name))
-                        (lambda-list (funcall self :get :lambda-list))
-                        (body (funcall self :get :body))
-                        (outers (car args)))
-                   (if outers
+  (let ((self (make-program :name name :lambda-list lambda-list :body body)))
+    (set-value self :toplevelp t)
+    (set-value self :sub
+               (lambda (self outer)
+                 (let* ((name (get-value self :name))
+                        (lambda-list (get-value self :lambda-list))
+                        (body (get-value self :body)))
+                   (if outer
                        (let* ((closure-name ($gensym ($symbol-name name)))
-                              (closure (make-flat-function
-                                        closure-name
-                                        lambda-list
-                                        (funcall
-                                         body
-                                         :東京ミュウミュウ-metamorphose!
-                                         outers)
-                                        nil nil outers nil))
+                              (closure (make-sub :name closure-name
+                                                 :lambda-list lambda-list
+                                                 :body (東京ミュウミュウ-metamorphose!
+                                                        body outer)
+                                                 :outer outer))
                               (let-defun (make-let-defun name)))
-                         (funcall (car outers) :add :inner-functions closure)
-                         (funcall (car outers) :add :inner-functions let-defun)
+                         (add-value outer :inners closure)
+                         (add-value outer :inners let-defun)
                          (make-set-symbol-function name closure-name))
-                       (let ((defun (make-flat-function
-                                     name
-                                     lambda-list
-                                     nil
-                                     nil
-                                     nil
-                                     outers
-                                     nil)))
-                         (funcall defun :set :body
-                                  (funcall body
-                                           :東京ミュウミュウ-metamorphose!
-                                           (cons defun outers)))
-                         defun))))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                       (let ((sub (make-sub :name name
+                                            :lambda-list lambda-list
+                                            :outr outer)))
+                         (set-value sub :body
+                                    (東京ミュウミュウ-metamorphose! body sub))
+                         sub)))))
+    self))
 
 (defun make-let-defun (name)
-  (let ((super (make-program :name name))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((name (funcall self :get :name)))
+  (let ((self (make-program :name name)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name)))
                    (prt-top ".sub " (parrot-sub-name name))
                    (prt ".param pmc x :slurpy")
                    (let ((f (next-var)))
@@ -995,19 +832,15 @@
                           ", 'function'")
                      (prt ".tailcall " f "(x :flat)"))
                    (prt-top ".end")
-                   (new-line)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   (new-line))))
+    self))
 
 (defun make-set-symbol-function (name closure-name)
-  (let ((super (make-program :name name :closure-name closure-name))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((name (funcall self :get :name))
-                       (closure-name (funcall self :get :closure-name))
+  (let ((self (make-program :name name :closure-name closure-name)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name))
+                       (closure-name (get-value self :closure-name))
                        (sub-var (next-var))
                        (closure-var (next-var)))
                    (prt ".const 'Sub' "
@@ -1019,120 +852,49 @@
                         (prt-intern-symbol name)
                         ", 'function', "
                         closure-var)
-                   closure-var))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
-
-(defun make-flat-function (name
-                           lambda-list
-                           body
-                           inner-functions
-                           lexical-store
-                           outers
-                           modifiers)
-  (let ((super (make-program :name name :lambda-list lambda-list :body body
-                             :inner-functions inner-functions
-                             :lexical-store lexical-store
-                             :outers outers
-                             :modifiers modifiers))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:toplevelp t)
-              (:pir
-                 (let ((*var-counter* 0)
-                       (*label-counter* 0)
-                       (name (funcall self :get :name))
-                       (lambda-list (funcall self :get :lambda-list))
-                       (arguments (collect-vars lambda-list))
-                       (body (funcall self :get :body))
-                       (outers (funcall self :get :outers))
-                       (inner-functions (funcall self :get :inner-functions))
-                       (lexical-store (funcall self :get :lexical-store))
-                       (modifiers (join " " (funcall self :get :modifiers))))
-                   (if outers
-                       (prt-top ".sub "
-                                (parrot-sub-name name)
-                                " :outer("
-                                (parrot-sub-name (funcall (car outers)
-                                                          :get :name))
-                                ") "
-                                modifiers)
-                       (prt-top ".sub " (parrot-sub-name name) modifiers))
-                   (pir-lambda-list lambda-list)
-                   (let ((dot-lex-vars ($mapcar (lambda (var)
-                                                  (when (special-var-p var)
-                                                    (prt-push-dynamic var)
-                                                    var))
-                                                arguments)))
-                     ($mapcar (lambda (var)
-                                (unless ($member var dot-lex-vars)
-                                  (let ((var (parrot-var var)))
-                                    (prt ".lex '" var "', " var))))
-                              lexical-store))
-                   (let ((ret (funcall body :pir)))
-                     (prt ".return(" ret ")"))
-                   (prt-top ".end")
-                   (new-line)
-                   ($mapcar (lambda (x)
-                              (funcall x :pir))
-                            inner-functions)))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   closure-var)))
+    self))
 
 (defun make-extracted-let (name values)
-  (let ((super (make-program :name name :values values))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((name (funcall self :get :name))
-                       (values (funcall self :get :values))
+  (let ((self (make-program :name name :values values)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name))
+                       (values (get-value self :values))
                        (sub (next-var))
                        (result (next-var)))
                    (prt ".const 'Sub' " sub " = " (parrot-sub-name name))
                    (prt sub " = newclosure " sub)
                    (prt result " = " sub
                         "(" (join "," (funcall values :pir)) ")")
-                   result))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   result)))
+    self))
 
 (defun make-extracted-lambda (name)
-  (let ((super (make-program :name name))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((name (funcall self :get :name))
+  (let ((self (make-program :name name)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name))
                        (var (next-var)))
                    (prt ".const 'Sub' " var " = " (parrot-sub-name name))
                    ;; TODO newclosure の気持ちがわからない
                    (prt var " = newclosure " var)
-                   var))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   var)))
+    self))
 
 (defun make-global-function-reference (name)
-  (let ((super (make-program :name name))
-        self)
-    (setq self
-          (lambda (message &rest args)
-            (case message
-              (:pir
-                 (let ((name (funcall self :get :name))
+  (let ((self (make-program :name name)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((name (get-value self :name))
                        (var (next-var)))
                    (prt var
                         " = get_hll_global [ "
                         (prin1-to-string ($package-name ($symbol-package name)))
-                        " ], "
+                        " ], binary:"
                         (prin1-to-string ($symbol-name name)))
-                   var))
-              (t (let ((ret (apply super message args)))
-                   (if (eq ret super) self ret))))))))
+                   var)))
+    self))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun make-vars (vars)
@@ -1140,15 +902,6 @@
       nil
       (cons (cons (car vars) (cadr vars))
             (make-vars (cddr vars)))))
-
-(defun walk (self vars message &rest args)
-  (if (null vars)
-      self
-      (let ((key (caar vars))
-            (val (cdar vars)))
-        (when (functionp val)
-          (funcall self :set key (apply val message args)))
-        (apply #'walk self (cdr vars) message args))))
 
 (defun next-var ()
   (setq *var-counter* (+ *var-counter* 1))
@@ -1252,15 +1005,14 @@
          (prt var " = box " (prin1-to-string atom))
          var))))
 
-(defun set-lexical-var (var outers)
-  (if (null outers)
-      nil
+(defun set-lexical-var (var outer)
+  (if outer
       (if ($member var (collect-vars
-                        (funcall (car outers) :get :lambda-list)))
-          (let ((lexical-store (funcall (car outers) :get :lexical-store)))
+                        (get-value outer :lambda-list)))
+          (let ((lexical-store (get-value outer :lexical-store)))
             (unless ($member var lexical-store)
-              (funcall (car outers) :add :lexical-store var)))
-          (set-lexical-var var (cdr outers)))))
+              (add-value outer :lexical-store var)))
+          (set-lexical-var var (get-value outer :outer)))))
 
 (defun collect-vars (x)
   (if (null x)
@@ -1318,7 +1070,7 @@
     (prt "if " supliedp " goto " label)
     ;; TODO ここの objectify は他の他の引数がバインドされた状態で評価される必要がある。
     ;; ここで objectify は遅すぎる。
-    (prt var " = " (funcall (objectify default-value nil nil) :pir))
+    (prt var " = " (pir (objectify default-value nil nil)))
     (prt-label label)))
 
 (defvar *info* nil)
@@ -1449,22 +1201,14 @@
       ($write-string "=cut" *pir-stream*)
       (new-line)
       (let ((object (objectify form nil nil)))
-        (if (funcall object :toplevelp)
-            (setq object (funcall object :東京ミュウミュウ-metamorphose! nil))
-            (let ((flat-function (make-flat-function
-                                  ($gensym "toplevel")
-                                  nil
-                                  nil
-                                  nil
-                                  nil
-                                  nil
-                                  '(":anon" ":init" ":load"))))
-              (setq object (funcall object
-                                    :東京ミュウミュウ-metamorphose!
-                                    ($list flat-function)))
-              (funcall flat-function :set :body object)
-              (setq object flat-function)))
-        (funcall object :pir))
+        (if (get-value object :toplevelp)
+            (setq object (東京ミュウミュウ-metamorphose! object nil))
+            (let ((sub (make-sub :name ($gensym "toplevel")
+                                 :modifiers '(":anon" ":init" ":load"))))
+              (setq object (東京ミュウミュウ-metamorphose! object sub))
+              (set-value sub :body object)
+              (setq object sub)))
+        (pir object))
       (read-loop in))))
 
 (defun compile-lisp-to-pir (lisp-file pir-file)
