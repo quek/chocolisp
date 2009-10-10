@@ -26,6 +26,11 @@
 (is 2 (optional4 1))
 (is 3 (optional4 1 2))
 
+(defun optional5 (a &optional (b (+ a a)))
+  (+ a b))
+(is 6 (optional5 2))
+(is 3 (optional5 1 2))
+
 (defun tagbody-test1 (flag)
   (let ((n 1))
     (tagbody
