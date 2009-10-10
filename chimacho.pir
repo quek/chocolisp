@@ -9,15 +9,6 @@
         .param pmc x
         .param pmc y
         eq x, y, true
-        '%IS_FAILED'()
-true:
-        .t
-        .return(t)
-.end
-
-.sub '%IS_FAILED'
-        .param pmc x
-        .param pmc y
         $S0 = "The assertion failed. ["
         $S1 = x
         $S0 .= $S1
@@ -26,6 +17,9 @@ true:
         $S0 .= $S1
         $S0 .= "]."
         die $S0
+true:
+        .t
+        .return(t)
 .end
 
 .sub 'OPEN-INPUT-FILE'

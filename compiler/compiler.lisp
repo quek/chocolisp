@@ -265,9 +265,26 @@
             (objectify-lambda lambda-list body r f))
           ($error (string+ "Invalid function name " name)))))
 
+(defun default-values (lambda-list r f args acc)
+  (if lambda-list
+      (let ((car (car lambda-list)))
+        (cond (($member car '(&rest &optional &key &allow-other-keys &aux))
+               (default-values (cdr lambda-list) r f args acc))
+              ((atom car)
+               (default-values (cdr lambda-list)
+                   (cons (cons car (car r)) (cdr r)) f (cons car args) acc))
+              (t
+               (let ((o (objectify (cons (list 'lambda args (cadr car)) args) r f)))
+                 (default-values (cdr lambda-list)
+                     (cons (cons (car car) (car r)) (cdr r))
+                   f (cons (car car) args) (acons (car car) o acc))))))
+      acc))
+
 (defun objectify-defun (name lambda-list body r f)
+  ;; TODO lambda-list を objectify した方がよさそう。
   (make-defun name
               lambda-list
+              (default-values lambda-list (extend-r r nil) f nil nil)
               (objectify (cons 'progn body) (extend-r r (collect-vars lambda-list)) f)))
 
 (defun objectify-progn (body r f)
@@ -382,7 +399,6 @@
                         (modifiers (join " " (get-value self :modifiers)))
                         (lambda-list (get-value self :lambda-list))
                         (arguments (collect-vars lambda-list))
-                        ;; TODO (default-values (get-value self :default-values))
                         (lexical-store (get-value self :lexical-store))
                         (outer (get-value self :outer)))
                    (prt-top ".sub "
@@ -393,7 +409,7 @@
                                          ") ")
                                 "")
                             modifiers)
-                   (pir-lambda-list lambda-list)
+                   (pir-lambda-list lambda-list (get-value self :default-values))
                    (let ((lex-vars ($mapcar (lambda (var)
                                               (when (special-var-p var)
                                                 (prt-push-dynamic var)
@@ -791,22 +807,29 @@
                    sym-var)))
     self))
 
-(defun make-defun (name lambda-list body)
-  (let ((self (make-program :name name :lambda-list lambda-list :body body)))
+(defun make-defun (name lambda-list default-values body)
+  (let ((self (make-program :name name :lambda-list lambda-list
+                            :default-values default-values :body body)))
     (set-value self :toplevelp t)
     (set-value self :sub
                (lambda (self outer)
                  (let* ((name (get-value self :name))
                         (lambda-list (get-value self :lambda-list))
+                        (default-values (get-value self :default-values))
                         (body (get-value self :body)))
                    (if outer
                        (let* ((closure-name ($gensym ($symbol-name name)))
                               (closure (make-sub :name closure-name
                                                  :lambda-list lambda-list
-                                                 :body (東京ミュウミュウ-metamorphose!
-                                                        body outer)
                                                  :outer outer))
                               (let-defun (make-let-defun name)))
+                         (set-value closure :body (東京ミュウミュウ-metamorphose! body closure))
+                         (set-value closure :default-values
+                                    ($mapcar (lambda (x)
+                                               (cons (car x)
+                                                     (東京ミュウミュウ-metamorphose!
+                                                      (cdr x) closure)))
+                                             default-values))
                          (add-value outer :inners closure)
                          (add-value outer :inners let-defun)
                          (make-set-symbol-function name closure-name))
@@ -815,6 +838,11 @@
                                             :outr outer)))
                          (set-value sub :body
                                     (東京ミュウミュウ-metamorphose! body sub))
+                         (set-value sub :default-values
+                                    ($mapcar (lambda (x)
+                                               (cons (car x)
+                                                     (東京ミュウミュウ-metamorphose! (cdr x) sub)))
+                                             default-values))
                          sub)))))
     self))
 
@@ -1029,20 +1057,20 @@
       (make-arguments (car list) (list-to-arguments (cdr list)))
       (make-no-argument)))
 
-(defun pir-lambda-list (lambda-list)
+(defun pir-lambda-list (lambda-list default-values)
   (if (null lambda-list)
       nil
       (cond ((eq (car lambda-list) '&rest)
              (let ((var (parrot-var (cadr lambda-list))))
                (prt ".param pmc " var " :slurpy")
-               (pir-lambda-list (cddr lambda-list))
+               (pir-lambda-list (cddr lambda-list) default-values)
                (prt var " = array_to_list(" var ")")))
             ((eq (car lambda-list) '&optional)
              (pir-lambda-list-optional (cdr lambda-list))
-             (pir-lambda-list-default-value (cdr lambda-list)))
+             (pir-lambda-list-default-value (cdr lambda-list) default-values))
             (t
              (prt ".param pmc " (parrot-var (car lambda-list)))
-             (pir-lambda-list (cdr lambda-list))))))
+             (pir-lambda-list (cdr lambda-list) default-values)))))
 
 (defun suplied-p-var (arg)
   (if (and (consp arg)
@@ -1059,19 +1087,21 @@
     (prt ".param pmc " var " :optional")
     (prt ".param int " supliedp " :opt_flag")))
 
-(defun pir-lambda-list-default-value (lambda-list)
-  (let* ((arg (if (atom (car lambda-list))
-                  (cons (car lambda-list) nil)
-                  (car lambda-list)))
-         (var (parrot-var (car arg)))
-         (default-value (cadr arg))
-         (supliedp (suplied-p-var arg))
-         (label (next-label "OPTIONAL")))
-    (prt "if " supliedp " goto " label)
-    ;; TODO ここの objectify は他の他の引数がバインドされた状態で評価される必要がある。
-    ;; ここで objectify は遅すぎる。
-    (prt var " = " (pir (objectify default-value nil nil)))
-    (prt-label label)))
+(defun pir-lambda-list-default-value (lambda-list default-values)
+  (when lambda-list
+    (let* ((arg (if (atom (car lambda-list))
+                    (cons (car lambda-list) nil)
+                    (car lambda-list)))
+           (var (parrot-var (car arg)))
+           (default (cadr arg))
+           (supliedp (suplied-p-var arg))
+           (label (next-label "OPTIONAL")))
+      (prt "if " supliedp " goto " label)
+      (prt var " = " (if default
+                         (pir (cdr ($assoc (car arg) default-values)))
+                         (pir (make-constant nil))))
+      (prt-label label))
+    (pir-lambda-list-default-value (cdr lambda-list) default-values)))
 
 (defvar *info* nil)
 
