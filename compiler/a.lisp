@@ -1,5 +1,10 @@
 (in-package :chimacho)
 
+(defun keyword-arg-fun1 (&key a)
+  a)
+
+(is 1 (keyword-arg-fun1 :a 1))
+
 (let ((hash ($make-hash-table)))
   ($sethash hash "key1" "val1")
   ($sethash hash :key2 2)

@@ -48,6 +48,24 @@ end:
         .return(array)
 .end
 
+.sub getf
+        .param pmc plist
+        .param pmc indicator
+        .local pmc result
+        .local pmc itr
+        itr = iter plist
+loop:
+        unless itr goto end
+        $P1 = shift itr
+        $P2 = shift itr
+        eq_addr $P1, indicator, found
+        goto loop
+found:
+        result = $P2
+end:
+        .return(result)
+.end
+
 ## TODO nickname
 .sub find_package
         .param pmc name

@@ -83,6 +83,7 @@
     (if (chimacho::get-value object :toplevelp)
         (setq object (chimacho::東京ミュウミュウ-metamorphose! object nil))
         (let ((sub (chimacho::make-sub :name (chimacho::$gensym "eval")
+                                       :lambda-list (chimacho::make-lambda-list-end)
                                        :modifiers '(":anon" ":init" ":load"))))
           (chimacho::set-value sub :body (chimacho::東京ミュウミュウ-metamorphose! object sub))
           (setq object sub)))

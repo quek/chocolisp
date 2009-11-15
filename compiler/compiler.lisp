@@ -78,8 +78,8 @@
         (in-package
            (objectify
             ($list 'eval-when '(:compile-toplevel :load-toplevel :execute)
-                    ($list 'setq '*package*
-                            ($list 'find-package (cadr form)))) r f))
+                   ($list 'setq '*package*
+                          ($list 'find-package (cadr form)))) r f))
         (declare
            (objectify nil r f))
         (parrot-code
@@ -145,7 +145,7 @@
          (lambdas ($mapcar (lambda (name form)
                              (make-lambda
                               (cdr name)
-                              (cadr form)
+                              (objectify-lambda-list (cadr form) r f nil nil)
                               (objectify (cons 'progn (cddr form))
                                          (extend-r r (cadr form)) f)))
                            fnames flet-form))
@@ -163,7 +163,7 @@
              (new-f (extend-f f ($list (cons label gensym-label)))))
         (%objectify-labels (cons (make-lambda
                                   gensym-label
-                                  lambda-list
+                                  (objectify-lambda-list lambda-list r new-f nil nil)
                                   (objectify (cons 'progn  body)
                                              (extend-r r lambda-list)
                                              new-f))
@@ -226,32 +226,28 @@
                                   x))
                             bindings))
          (vars ($mapcar #'car bindings))
-         (values  (list-to-arguments ($mapcar (lambda (x)
-                                                (objectify (cadr x) r f))
-                                              bindings))))
-    (make-let vars values
-              (objectify (cons 'progn body) (extend-r r vars) f))))
+         (values ($mapcar #'cadr bindings)))
+    (objectify (cons (cons 'lambda (cons vars body)) values) r f)))
 
 (defun objectify-let* (bindings body r f)
   (if bindings
       (let* ((bind (let ((x (car bindings)))
                      (if (atom x) (cons x nil) x)))
-             (vars (cons (car bind) nil))
+             (var (car bind))
              (value (cadr bind)))
-        (make-let vars
-                  (list-to-arguments (cons (objectify value r f) nil))
-                  (objectify-let* (cdr bindings)
-                                  body
-                                  (extend-r r vars)
-                                  f)))
+        (objectify (list 'let (list (list var value))
+                         (cons 'let* (cons (cdr bindings)
+                                           body)))
+                   r f))
       (objectify (cons 'progn body) r f)))
 
 (defun objectify-lambda (lambda-list body r f)
-  (make-lambda ($gensym "lambda")
-               lambda-list
-               (objectify (cons 'progn body)
-                          (extend-r r (collect-vars lambda-list))
-                          f)))
+  (let ((lambda-list (objectify-lambda-list lambda-list r f nil nil)))
+    (make-lambda ($gensym "lambda")
+                 lambda-list
+                 (objectify (cons 'progn body)
+                            (extend-r r (collect-vars lambda-list))
+                            f))))
 
 (defun objectify-function (name r f)
   (if (symbolp name)
@@ -265,27 +261,125 @@
             (objectify-lambda lambda-list body r f))
           ($error (string+ "Invalid function name " name)))))
 
-(defun default-values (lambda-list r f args acc)
-  (if lambda-list
-      (let ((car (car lambda-list)))
-        (cond (($member car lambda-list-keywords)
-               (default-values (cdr lambda-list) r f args acc))
-              ((atom car)
-               (default-values (cdr lambda-list)
-                   (cons (cons car (car r)) (cdr r)) f (cons car args) acc))
-              (t
-               (let ((o (objectify (cons (list 'lambda args (cadr car)) args) r f)))
-                 (default-values (cdr lambda-list)
-                     (cons (cons (car car) (car r)) (cdr r))
-                   f (cons (car car) args) (acons (car car) o acc))))))
-      acc))
-
 (defun objectify-defun (name lambda-list body r f)
-  ;; TODO lambda-list を objectify した方がよさそう。
-  (make-defun name
-              lambda-list
-              (default-values lambda-list (extend-r r nil) f nil nil)
-              (objectify (cons 'progn body) (extend-r r (collect-vars lambda-list)) f)))
+  (let ((lambda-list (objectify-lambda-list lambda-list r f nil nil)))
+    (make-defun name
+                lambda-list
+                (objectify (cons 'progn body) (extend-r r (collect-vars lambda-list)) f))))
+
+(defun objectify-lambda-list (lambda-list r f keyword args)
+  (if (null lambda-list)
+      (make-lambda-list-end)
+      (let ((car (car lambda-list)))
+        (if (atom car)
+            (if ($member car lambda-list-keywords)
+                (objectify-lambda-list (cdr lambda-list) r f car args)
+                (make-lambda-list
+                 (cond ((eq keyword '&optional)
+                        (make-optional-lambda-list car nil nil))
+                       ((eq keyword '&key)
+                        (make-key-lambda-list car nil nil))
+                       ((eq keyword '&rest)
+                        (make-rest-lambda-list car))
+                       ((null keyword)
+                        (make-required-lambda-list car)))
+                 (objectify-lambda-list (cdr lambda-list) r f keyword (cons car args))))
+            (make-lambda-list
+             (apply (cond ((eq keyword '&optional) #'make-optional-lambda-list)
+                          ((eq keyword '&key) #'make-key-lambda-list))
+                    (car car)
+                    (objectify (cons (list 'lambda args (cadr car)) args) (extend-r r args) f)
+                    (caddr car)
+                    nil)
+             (objectify-lambda-list (cdr lambda-list) r f keyword (cons car args)))))))
+
+(defun make-lambda-list (first rest)
+  (let ((self (make-program :first first :rest rest)))
+    (set-value self :pir
+               (lambda (self)
+                 (pir (get-value self :first))
+                 (pir (get-value self :rest))))
+    (set-value self :collect-vars
+               (lambda (self)
+                 (cons (get-value (get-value self :first) :var)
+                       (call (get-value self :rest) :collect-vars))))
+    (set-value self :pir-init-form
+               (lambda (self)
+                 (call (get-value self :first) :pir-init-form)
+                 (call (get-value self :rest) :pir-init-form)))
+    self))
+
+(defun make-lambda-list-end ()
+  (let ((self (make-program)))
+    (set-value self :pir
+               (lambda (self) self))
+    (set-value self :collect-vars
+               (lambda (self) self nil))
+    (set-value self :pir-init-form
+               (lambda (self) self))
+    self))
+
+(defun make-required-lambda-list (var)
+  (let ((self (make-program :var var)))
+    (set-value self :pir
+               (lambda (self)
+                 (prt ".param pmc " (parrot-var (get-value self :var)))))
+    (set-value self :pir-init-form
+               (lambda (self) self))
+    self))
+
+(defun make-init-form-lambda-list (var init-form svar)
+  (let ((self (make-program :var var
+                            :init-form (or init-form (make-constant nil))
+                            :svar (suplied-p-var var svar))))
+    (set-value self :pir-init-form
+               (lambda (self)
+                 (let ((label (next-label "INIT_FORM")))
+                   (prt "if " (get-value self :svar) " goto " label)
+                   (prt (parrot-var (get-value self :var)) " = "
+                        (pir (get-value self :init-form)))
+                   (prt-label label))))
+    self))
+
+
+(defun make-optional-lambda-list (var init-form svar)
+  (let ((self (make-init-form-lambda-list var init-form svar)))
+    (set-value self :pir
+               (lambda (self)
+                 (prt ".param pmc " (parrot-var (get-value self :var)) " :optional")
+                 (prt ".param int " (get-value self :svar) " :opt_flag")))
+    self))
+
+(defun make-key-lambda-list (var init-form svar)
+  (let ((self (make-init-form-lambda-list var init-form svar)))
+    (set-value self :pir
+               (lambda (self)
+                 self
+                 (prt ".param pmc key_args :slurpy")))
+    (set-value self :pir-init-form
+               (lambda (self)
+                 (let ((key (get-value self :var))
+                       (parrot-var (parrot-var (get-value self :var)))
+                       (end-label (next-label "KEY_ARG_END")))
+                   (prt ".local pmc " parrot-var)
+                   (prt parrot-var " = getf(key_args, " (pir-symbol key) ")")
+                   (prt "unless_null " parrot-var ", " end-label)
+                   (prt parrot-var " = " (pir (get-value self :init-form)))
+                   (prt-label end-label))))
+    self))
+
+(defun make-rest-lambda-list (var)
+  (let ((self (make-program :var var)))
+    (set-value self :pir
+               (lambda (self)
+                 (let ((var (parrot-var (get-value self :var))))
+                   (prt ".param pmc " var " :slurpy"))))
+    (set-value self :pir-init-form
+               (lambda (self)
+                 (let ((var (parrot-var (get-value self :var))))
+                   (prt var " = array_to_list(" var ")"))))
+    self))
+
 
 (defun objectify-progn (body r f)
   (if (null body)
@@ -305,9 +399,7 @@
                 (make-global-application fun args)))
         (if (and ($consp fun)
                  (eq (car fun) 'lambda))
-            (let ((lambda-form (objectify-lambda (cadr fun)
-                                                 (cddr fun)
-                                                 r f)))
+            (let ((lambda-form (objectify-lambda (cadr fun) (cddr fun) r f)))
               (make-lambda-application lambda-form args))
             ($error (string+ fun " is not applicable."))))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -371,24 +463,8 @@
                    (parrot-var var))))
     self))
 
-(defun make-let (vars values body)
-  (let ((self (make-program :vars vars :values values :body body)))
-    (set-value self :sub
-               (lambda (self outer)
-                 (let* ((name ($gensym "let"))
-                        (sub (make-sub :name name
-                                       :lambda-list (get-value self :vars)
-                                       :outer outer)))
-                   (add-value outer :inners sub)
-                   (set-value sub :body (東京ミュウミュウ-metamorphose!
-                                         (get-value self :body) sub))
-                   (make-lexical-application name
-                                             (東京ミュウミュウ-metamorphose!
-                                              (get-value self :values) outer)))))
-    self))
-
 (defun make-sub (&rest args)
-  ;; name modifiers lambda-list default-values lexical-store body outer inners
+  ;; name modifiers lambda-list lexical-store body outer inners
   (let ((self (apply #'make-program args)))
     (set-value self :toplevelp t)
     (set-value self :pir
@@ -409,7 +485,8 @@
                                          ") ")
                                 "")
                             modifiers)
-                   (pir-lambda-list lambda-list (get-value self :default-values))
+                   (pir lambda-list)
+                   (call lambda-list :pir-init-form)
                    (let ((lex-vars ($mapcar (lambda (var)
                                               (when (special-var-p var)
                                                 (prt-push-dynamic var)
@@ -756,10 +833,10 @@
 (defun make-change-package (name setq-form)
   (let ((self (make-program :name name :setq-form setq-form)))
     (set-value self :sub
-          (lambda (self outer)
-            (let ((setq-form (get-value self :setq-form)))
-              (add-value outer :inners self)
-              (東京ミュウミュウ-metamorphose! setq-form outer))))
+               (lambda (self outer)
+                 (let ((setq-form (get-value self :setq-form)))
+                   (add-value outer :inners self)
+                   (東京ミュウミュウ-metamorphose! setq-form outer))))
     (set-value self :pir
                (lambda (self)
                  (let ((name (get-value self :name)))
@@ -785,6 +862,7 @@
                        (setq modifiers (cons ":init" modifiers)))
                    (if modifiers
                        (let ((sub (make-sub :name ($gensym "eval-when")
+                                            :lambda-list (make-lambda-list-end)
                                             :outer outer
                                             :modifiers (cons ":anon" modifiers))))
                          (set-value sub :body (東京ミュウミュウ-metamorphose! form sub))
@@ -807,42 +885,34 @@
                    sym-var)))
     self))
 
-(defun make-defun (name lambda-list default-values body)
+(defun make-defun (name lambda-list body)
   (let ((self (make-program :name name :lambda-list lambda-list
-                            :default-values default-values :body body)))
+                            :body body)))
     (set-value self :toplevelp t)
     (set-value self :sub
                (lambda (self outer)
                  (let* ((name (get-value self :name))
                         (lambda-list (get-value self :lambda-list))
-                        (default-values (get-value self :default-values))
                         (body (get-value self :body)))
                    (if outer
                        (let* ((closure-name ($gensym ($symbol-name name)))
                               (closure (make-sub :name closure-name
-                                                 :lambda-list lambda-list
+                                                 :lambda-list (make-lambda-list-end)
                                                  :outer outer))
                               (let-defun (make-let-defun name)))
+                         (set-value closure :lambda-list
+                                    (東京ミュウミュウ-metamorphose! lambda-list closure))
                          (set-value closure :body (東京ミュウミュウ-metamorphose! body closure))
-                         (set-value closure :default-values
-                                    ($mapcar (lambda (x)
-                                               (cons (car x)
-                                                     (東京ミュウミュウ-metamorphose!
-                                                      (cdr x) closure)))
-                                             default-values))
                          (add-value outer :inners closure)
                          (add-value outer :inners let-defun)
                          (make-set-symbol-function name closure-name))
                        (let ((sub (make-sub :name name
                                             :lambda-list lambda-list
                                             :outr outer)))
+                         (set-value sub :lambda-list
+                                    (東京ミュウミュウ-metamorphose! lambda-list sub))
                          (set-value sub :body
                                     (東京ミュウミュウ-metamorphose! body sub))
-                         (set-value sub :default-values
-                                    ($mapcar (lambda (x)
-                                               (cons (car x)
-                                                     (東京ミュウミュウ-metamorphose! (cdr x) sub)))
-                                             default-values))
                          sub)))))
     self))
 
@@ -1042,66 +1112,18 @@
               (add-value outer :lexical-store var)))
           (set-lexical-var var (get-value outer :outer)))))
 
-(defun collect-vars (x)
-  (if (null x)
-      nil
-      (if ($member (car x) lambda-list-keywords)
-          (collect-vars (cdr x))
-          (cons (if (atom (car x))
-                    (car x)
-                    (caar x))
-                (collect-vars (cdr x))))))
+(defun collect-vars (lambda-list)
+  (call lambda-list :collect-vars))
 
 (defun list-to-arguments (list)
   (if list
       (make-arguments (car list) (list-to-arguments (cdr list)))
       (make-no-argument)))
 
-(defun pir-lambda-list (lambda-list default-values)
-  (if (null lambda-list)
-      nil
-      (cond ((eq (car lambda-list) '&rest)
-             (let ((var (parrot-var (cadr lambda-list))))
-               (prt ".param pmc " var " :slurpy")
-               (pir-lambda-list (cddr lambda-list) default-values)
-               (prt var " = array_to_list(" var ")")))
-            ((eq (car lambda-list) '&optional)
-             (pir-lambda-list-optional (cdr lambda-list))
-             (pir-lambda-list-default-value (cdr lambda-list) default-values))
-            (t
-             (prt ".param pmc " (parrot-var (car lambda-list)))
-             (pir-lambda-list (cdr lambda-list) default-values)))))
-
-(defun suplied-p-var (arg)
-  (if (and (consp arg)
-           (caddr arg))
-      (parrot-var (caddr arg))
-      (string+ (parrot-var (if (atom arg) arg (car arg))) "_P")))
-
-(defun pir-lambda-list-optional (lambda-list)
-  (let* ((arg (if (atom (car lambda-list))
-                  (cons (car lambda-list) nil)
-                  (car lambda-list)))
-         (var (parrot-var (car arg)))
-         (supliedp (suplied-p-var arg)))
-    (prt ".param pmc " var " :optional")
-    (prt ".param int " supliedp " :opt_flag")))
-
-(defun pir-lambda-list-default-value (lambda-list default-values)
-  (when lambda-list
-    (let* ((arg (if (atom (car lambda-list))
-                    (cons (car lambda-list) nil)
-                    (car lambda-list)))
-           (var (parrot-var (car arg)))
-           (default (cadr arg))
-           (supliedp (suplied-p-var arg))
-           (label (next-label "OPTIONAL")))
-      (prt "if " supliedp " goto " label)
-      (prt var " = " (if default
-                         (pir (cdr ($assoc (car arg) default-values)))
-                         (pir (make-constant nil))))
-      (prt-label label))
-    (pir-lambda-list-default-value (cdr lambda-list) default-values)))
+(defun suplied-p-var (var svar)
+  (if svar
+      (parrot-var svar)
+      (string+ (parrot-var var) "_P")))
 
 (defvar *info* nil)
 
@@ -1234,6 +1256,7 @@
         (if (get-value object :toplevelp)
             (setq object (東京ミュウミュウ-metamorphose! object nil))
             (let ((sub (make-sub :name ($gensym "toplevel")
+                                 :lambda-list (make-lambda-list-end)
                                  :modifiers '(":anon" ":init" ":load"))))
               (setq object (東京ミュウミュウ-metamorphose! object sub))
               (set-value sub :body object)
